@@ -586,7 +586,12 @@ const Pace = (() => {
       skim: new Set(opts.skim || []),
       noQ: new Set(opts.noQ || []),        // banks you have opted out of today
     };
-    const start = opts.start, finish = opts.finish;
+    const start = opts.start;
+    /* A small-hours finish means tomorrow (11:00 -> 01:30 is a real study
+       night). Handled HERE so every caller gets it — the shared page calls
+       plan() directly and was producing an empty day. */
+    let finish = opts.finish;
+    if (finish <= start && finish < 6 * 60) finish += 24 * 60;
     const avail = finish - start;
     /* A finish time that has already gone by is a setting to fix, not a day to
        cram — returning an empty plan keeps the panel honest about that. */
@@ -674,6 +679,8 @@ const Pace = (() => {
      No skimming and nothing dropped — the question is "when must I begin to
      get through all of it", so the answer is allowed to be uncomfortable. */
   function backplan(opts) {
+    const finish = (opts.finish <= (opts.start != null ? opts.start : 0)
+                    && opts.finish < 6 * 60) ? opts.finish + 24 * 60 : opts.finish;
     const o = {
       wpm: +opts.wpm || DEF.wpm, perQ: opts.perQ || perQms(),
       breakMin: opts.breakPerHour == null ? DEF.breakPerHour : +opts.breakPerHour,
@@ -687,9 +694,9 @@ const Pace = (() => {
     const skimWork = sum(pending, skimO, c => c.total);
     return {
       pending: pending.length, work, breaks, span: work + breaks,
-      start: opts.finish - (work + breaks),
+      start: finish - (work + breaks),
       skimSpan: skimWork + Math.floor(skimWork / MAX_RUN) * o.breakMin,
-      skimStart: opts.finish - (skimWork + Math.floor(skimWork / MAX_RUN) * o.breakMin),
+      skimStart: finish - (skimWork + Math.floor(skimWork / MAX_RUN) * o.breakMin),
       readMin: sum(pending, o, c => c.read), qMin: sum(pending, o, c => c.q),
       perQ: o.perQ,
     };
