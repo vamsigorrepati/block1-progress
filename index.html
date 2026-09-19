@@ -1021,17 +1021,28 @@ function schedule(){
     const w=win(todayDay);
     hd.innerHTML='<b></b><span class="win"></span><span class="vd"></span>';
     hd.querySelector('b').textContent='Today — '+todayDay.split(' —')[0];
-    hd.querySelector('.win').textContent=w?((w.st||'—')+' → '+(w.fi||'—')):'no hours set';
+    hd.querySelector('.win').textContent=w
+      ? (w.st ? w.st+' → '+(w.fi||'—')
+              : 'finishing by '+(w.fi||'—'))
+      : 'no hours set';
     box.appendChild(hd);
-    if(w&&w.st){
+    if(w&&(w.st||w.fi)){
       /* lay his day out exactly as his own pacer would */
       const items=ROWS.filter(r=>r.dayGroup===todayDay)
         .map(r=>({id:r.id,title:r.title,day:r.dayGroup,order:r.dayOrder,
                   words:r.words||0,qs:r.qs||0,cseve:r.cseve}))
         .sort((a,b)=>a.order-b.order);
       const done=i=>{const s=st(i.id);return !!s.p1&&(!!s.p2||!i.qs);};
-      const p=Pace.plan({items,start:(PACE.days[todayDay]||{}).start,
-                         finish:Pace.parseHHMM(w.fi||'21:00'),wpm:PACE.wpm||230,
+      /* If he has set only a finish time, the honest thing to show is the
+         backwards answer — when the day has to begin to fit — rather than
+         guessing with the VIEWER's clock, which may be another timezone. */
+      const fin=Pace.parseHHMM(w.fi||'21:00');
+      const back=Pace.backplan({items,finish:fin,wpm:PACE.wpm||230,perQ:PACE.perQ,
+                                noQ:PACE.noQ||[],isDone:done});
+      const startMin=(PACE.days[todayDay]||{}).start!=null
+        ? (PACE.days[todayDay]||{}).start : back.start;
+      const p=Pace.plan({items,start:startMin,
+                         finish:fin,wpm:PACE.wpm||230,
                          perQ:PACE.perQ,        /* his pace, not this browser's */
                          noQ:PACE.noQ||[],isDone:done});
       const n=Pace.now(p,{state:i=>{const s=st(i.id);
@@ -1043,6 +1054,12 @@ function schedule(){
         n.state==='behind'?'var(--corr)':n.state==='pre'?'var(--ink3)':'var(--ok)';
       const now=document.createElement('div');now.className='now';
       const b=n.block;
+      if(!w.st){
+        const hint=document.createElement('div');hint.className='now';
+        hint.innerHTML='<i>no start time set — this is the schedule that fits, '
+          +'beginning '+Pace.hhmm(p.start)+'</i>';
+        box.appendChild(hint);
+      }
       now.innerHTML=b?('<b>'+(b.kind==='break'?'On a break':
           (b.kind==='read'?'Reading':'Questions')+' — '+b.items.map(i=>i.title).join(', '))
           +'</b> <i>until '+Pace.hhmm(b.end)+'</i>')
