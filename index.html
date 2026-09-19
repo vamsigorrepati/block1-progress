@@ -295,6 +295,12 @@ html,body{height:auto;overflow:visible}
  font-size:11.5px}
 .ttnote{margin-top:6px;font-size:11px;color:var(--exam)}
 .ttnote.bad{color:var(--corr)}
+.ttwrap{margin-top:8px}
+.ttwrap>summary{cursor:pointer;font-size:12px;font-weight:650;color:var(--accent);
+ list-style:none;padding:4px 0}
+.ttwrap>summary::-webkit-details-marker{display:none}
+.ttwrap>summary::before{content:"▸ ";font-size:10px}
+.ttwrap[open]>summary::before{content:"▾ "}
 @media(max-width:760px){.ttw{flex-basis:84px}.ttm{display:none}}
 main{max-width:1000px;margin:0 auto;padding:30px 20px 70px}
 h1{margin:0;font-size:24px;letter-spacing:-.02em}
@@ -349,13 +355,13 @@ footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
      review sheet for and answered the question bank for. It syncs from his machine while he studies and refreshes here every 30 seconds.</p>
   </div><button id="theme" title="Change theme"></button></div>
 
-  <section class="sched" id="sched"></section>
-
   <div class="mets">
     <div class="met" id="m-p1"><b>Sheets read</b><div class="v"></div><div class="trk"><span></span></div></div>
     <div class="met" id="m-p2"><b>Question banks</b><div class="v"></div><div class="trk"><span></span></div></div>
     <div class="met" id="m-conf"><b>Confidence</b><div class="v"></div><div class="trk"><span></span></div></div>
   </div>
+
+  <section class="sched" id="sched"></section>
 
   <div class="key" id="key"></div>
 
@@ -1074,7 +1080,15 @@ function schedule(){
         :('<i>'+(today<p.start?'starts '+Pace.hhmm(p.start):'plan ended '+Pace.hhmm(p.end))+'</i>');
       box.appendChild(now);
 
-      /* the day itself, block by block — this is the schedule, not a summary */
+      /* The day itself, block by block. Folded by default — 37 rows would
+         otherwise bury the progress a viewer came for; the line above already
+         says where he is. */
+      const det=document.createElement('details');det.className='ttwrap';
+      const sum=document.createElement('summary');
+      sum.textContent=p.blocks.filter(x=>x.kind!=='break').length+' blocks · '
+        +Pace.hhmm(p.start)+'–'+Pace.hhmm(p.end)
+        +(p.totals.pending?' · '+p.totals.pending+' lectures':'');
+      det.appendChild(sum);
       const tt=document.createElement('div');tt.className='tt';
       p.blocks.forEach(bl=>{
         const r=document.createElement('div');
@@ -1102,7 +1116,8 @@ function schedule(){
           +p.dropped.slice(0,3).map(i=>i.title).join(' · ');
         tt.appendChild(note);
       }
-      box.appendChild(tt);
+      det.appendChild(tt);
+      box.appendChild(det);
     }
   }else{
     hd.innerHTML='<b>Not a study day</b><span class="win">the plan runs Sat 19 – Wed 23 Sep</span>';
