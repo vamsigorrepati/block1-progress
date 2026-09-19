@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T16:24:55.558Z",
+ "updated": "2026-09-19T16:26:05.023Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -16,7 +16,8 @@
   "week-1-cell-biology-basic-concepts": {},
   "week-1-amino-acids-and-proteins": {
    "p1": true,
-   "at": 1789835095557
+   "at": 1789835165021,
+   "conf": "4"
   },
   "week-1-carbohydrates": {},
   "week-1-lipids": {},
