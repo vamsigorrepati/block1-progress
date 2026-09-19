@@ -7,8 +7,10 @@
  "days": {
   "Saturday Sep 19 \u2014 biochem foundations + metabolism": {
    "start": 660,
-   "finish": "01:30"
+   "finish": "01:30",
+   "at": 1789832008307
   }
  },
- "date": "2026-09-19"
+ "date": "2026-09-19",
+ "mode": "fit"
 }
