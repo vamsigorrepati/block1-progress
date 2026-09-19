@@ -3,10 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Block 1 revision — progress</title>
-<script>/* the viewer's own theme choice, remembered in their browser */
+<script>/* Opens light for everyone — a shared page should look the same to the
+   person it was sent to regardless of their OS setting. Their own choice, once
+   they use the toggle, is remembered and wins from then on. */
 (function(){var t;try{t=localStorage.getItem('b1v-theme');}catch(e){}
- if(!t||['light','dark','sepia'].indexOf(t)<0)
-   t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+ if(!t||['light','dark','sepia'].indexOf(t)<0) t='light';
  document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
 :root,:root[data-theme="light"]{--bg:#f6f7f9;--panel:#fff;--ink:#12151a;--ink2:#4a5260;--ink3:#79818f;--line:#e2e6ec;
