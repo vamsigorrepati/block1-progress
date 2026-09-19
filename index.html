@@ -292,9 +292,11 @@ html,body{height:auto;overflow:visible}
 main{max-width:1000px;margin:0 auto;padding:30px 20px 70px}
 h1{margin:0;font-size:24px;letter-spacing:-.02em}
 .sub{margin:5px 0 0;font-size:13px;color:var(--ink2)}
-.ro{display:inline-block;margin-left:8px;font-size:10px;font-weight:750;letter-spacing:.06em;
- text-transform:uppercase;color:var(--ink3);border:1px solid var(--line);border-radius:999px;
- padding:2px 8px;vertical-align:2px}
+/* the badge sits on a 24px heading, so it needs its own line-height — the
+   body's 1.6 was stretching the pill and floating the text inside it */
+.ro{display:inline-block;margin-left:9px;font-size:10px;font-weight:750;letter-spacing:.07em;
+ line-height:1;text-transform:uppercase;color:var(--ink3);background:var(--bg);
+ border:1px solid var(--line);border-radius:999px;padding:5px 9px 4px;vertical-align:5px}
 .mets{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0 6px}
 .met{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 13px;
  box-shadow:var(--shadow)}
