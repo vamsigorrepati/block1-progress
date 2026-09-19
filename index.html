@@ -460,7 +460,9 @@ const Pace = (() => {
   }
   function setDayTimes(day, patch) {
     const s = settings();
-    s.days[day] = Object.assign({}, s.days[day] || {}, patch);
+    /* stamped so the server can tell a fresh edit from a stale tab replaying
+       its own older window — same newest-wins rule the tracker rows use */
+    s.days[day] = Object.assign({}, s.days[day] || {}, patch, {at: Date.now()});
     return setSettings({days: s.days});
   }
   let _sync = null;
