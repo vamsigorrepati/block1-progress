@@ -449,8 +449,12 @@ const Pace = (() => {
        shared page; debounced, and a failure never matters locally */
     clearTimeout(_sync);
     _sync = setTimeout(() => {
+      /* carry the measured per-question median with the settings: the shared
+         copy has none of his attempt history, and without this it would price
+         every bank at the 75 s cold-start seed and plan a much longer day */
       fetch('api/pace', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                         body: JSON.stringify(s)}).catch(() => {});
+                         body: JSON.stringify(Object.assign({perQ: perQms()}, s))})
+        .catch(() => {});
     }, 600);
     return s;
   }
@@ -1028,6 +1032,7 @@ function schedule(){
       const done=i=>{const s=st(i.id);return !!s.p1&&(!!s.p2||!i.qs);};
       const p=Pace.plan({items,start:(PACE.days[todayDay]||{}).start,
                          finish:Pace.parseHHMM(w.fi||'21:00'),wpm:PACE.wpm||230,
+                         perQ:PACE.perQ,        /* his pace, not this browser's */
                          noQ:PACE.noQ||[],isDone:done});
       const n=Pace.now(p,{state:i=>{const s=st(i.id);
                                     return {p1:!!s.p1,p2:!!s.p2||!i.qs};}},items);
