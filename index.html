@@ -417,7 +417,7 @@ const Pace = (() => {
      90 s an item. His own median on this site is about half that, but a bank
      answered at speed is not the pace the exam is scored at, so the day is
      planned at exam time and the field is editable. */
-  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4, secPerQ: 90, order: 'reading'};
+  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4, secPerQ: 90, order: 'lecture'};
   const MAX_RUN = 55;                     // minutes of work before a break is due
   const OVERSHOOT = 10;                   // ...unless the block only just exceeds it
   const SEED_Q_MS = 75000;                // practice/dashboard.js CONST.SEED_MS
@@ -670,9 +670,10 @@ const Pace = (() => {
     const keptSci = f.work.filter(i => !i.cseve), keptCs = f.work.filter(i => i.cseve);
     const oo = Object.assign({}, o, {skim: f.skim});
 
-    /* Order of the day. 'reading' does every sheet first and every bank after,
-       which is how a day of long sheets actually gets worked; 'lecture' pairs
-       each sheet with its own bank before moving on. It matters beyond taste:
+    /* Order of the day. 'lecture' (the default) works a cluster of sheets and
+       then their banks, so questions stay spread through the day; 'reading'
+       does every sheet first and every bank after, which sounds tidy and in
+       practice buries five hours of banks after 5 pm. It matters beyond taste:
        the verdict calls a block overdue when its window closes unticked, so a
        plan whose order is not the order you work in reports you hours late for
        blocks you deliberately stepped over. */
