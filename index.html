@@ -430,6 +430,7 @@ const Pace = (() => {
   const hhmm = m => pad(Math.floor(((m % 1440) + 1440) % 1440 / 60)) + ':' + pad(Math.round(m) % 60);
   /* Everything a human reads is 12-hour. hhmm() stays because <input type="time">
      and the stored settings must remain machine-readable 24-hour. */
+  const t12d = m => t12(m) + (m >= 1440 ? (m >= 2880 ? ' +2d' : ' tomorrow') : '');
   const t12 = m => {
     const x = ((Math.round(m) % 1440) + 1440) % 1440, h = Math.floor(x / 60);
     return (h % 12 || 12) + ':' + pad(x % 60) + (h < 12 ? ' am' : ' pm');
@@ -934,7 +935,7 @@ const Pace = (() => {
       sub.appendChild(v);
       r.appendChild(sub);
       r.title = `${p.totals.pending} left · ${dur(p.totals.planMin)} planned · `
-              + `projected finish ${t12(n.projFinish)}`;
+              + `projected finish ${t12d(n.projFinish)}`;
       r.onclick = () => { location.href = 'tracker.html#pace'; };
     }
 
@@ -1015,7 +1016,12 @@ const Pace = (() => {
         `${p.totals.pending} left · `
         + (n.ended ? `plan ended ${t12(p.end)} — press Start now to re-plan from here`
                    : `plan ends ${t12(p.end)}`)
-        + (n.rate && !n.ended ? ` · at your pace, ${t12(n.projFinish)}` : '')));
+        + (n.rate && !n.ended
+             /* beyond the day's end it is not a finish time, it is an overrun */
+             ? (n.projFinish > p.end + 15
+                  ? ` · at your pace, ${dur(n.projFinish - p.end)} past the finish`
+                  : ` · at your pace, ${t12d(n.projFinish)}`)
+             : '')));
       r.appendChild(head);
 
       /* what the fitter did */
@@ -1120,7 +1126,7 @@ const Pace = (() => {
 
   return {plan, backplan, now, mount, cost, perQms, ticks, settings, setSettings,
           dayTimes, setDayTimes, isToday,
-          hhmm, t12, parseHHMM, nowMin, dur, studyDate, SKIM_FRACTION};
+          hhmm, t12, t12d, parseHHMM, nowMin, dur, studyDate, SKIM_FRACTION};
 })();
 </script>
 <script>
