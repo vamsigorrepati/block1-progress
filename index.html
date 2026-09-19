@@ -797,7 +797,24 @@ const Pace = (() => {
       if (d.p2) { doneMin += cost(i, o).q; doneCount++; }
     });
 
-    const delta = doneMin - planned;              // + ahead, - behind
+    /* Where the plan says you are: walk the timetable until its cumulative work
+       matches what you have finished, and read off the CLOCK there. Breaks count
+       in that walk, because they are part of when a block is due to end. The
+       answer is a distance in time — "you are here at 2:10 pm, the plan has you
+       here at 3:05 pm, so you are 55m ahead" — not a pile of work minutes, which
+       is what it used to report and which never matched the timetable. */
+    let acc = 0, atClock = p.start;
+    for (let k = 0; k < p.blocks.length; k++) {
+      const b = p.blocks[k];
+      if (b.kind === 'break') { if (acc >= doneMin - 0.01) break; atClock = b.end; continue; }
+      if (acc + b.min <= doneMin + 0.01) { acc += b.min; atClock = b.end; continue; }
+      atClock = b.start + Math.max(0, doneMin - acc);   // part-way through a block
+      acc = doneMin;
+      break;
+    }
+    if (doneMin > acc) atClock = p.end;                 // finished more than the day holds
+
+    const delta = atClock - t;                    // + ahead of the clock, - behind
     const elapsed = Math.max(1, t - p.start);
     const remaining = Math.max(0, p.totals.planMin - doneMin);
     /* Once there is real throughput to measure, trust it over the model. */
@@ -810,10 +827,17 @@ const Pace = (() => {
     return {
       t, block, next, plannedMin: planned, doneMin, doneCount, deltaMin: delta,
       rate, projFinish, ended, remainingMin: remaining,
-      verdict: t < p.start ? 'starts ' + t12(p.start)
+      atClock,
+      verdictShort: t < p.start ? 'starts ' + t12(p.start)
              : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
              : Math.abs(delta) < 8 ? 'on track'
              : delta > 0 ? `${dur(delta)} ahead` : `${dur(-delta)} behind`,
+      verdict: t < p.start ? 'starts ' + t12(p.start)
+             : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
+             : Math.abs(delta) < 8 ? 'on track'
+             /* say it in clock terms: the plan had this done by <time> */
+             : delta > 0 ? `${dur(delta)} ahead — plan has you here at ${t12(atClock)}`
+                         : `${dur(-delta)} behind — this was due by ${t12(atClock)}`,
       state: t < p.start ? 'pre'
            : ended ? (remaining > 2 ? 'behind' : 'ok')
            : Math.abs(delta) < 8 ? 'ok' : delta > 0 ? 'ahead' : 'behind',
@@ -905,7 +929,8 @@ const Pace = (() => {
       const sub = el('div', 'pc-sub');
       sub.appendChild(el('span', null, b ? 'until ' + t12(b.end)
                                          : 'finish ' + t12(p.end)));
-      const v = el('span', 'pc-v', n.verdict);
+      const v = el('span', 'pc-v', n.verdictShort);
+      v.title = n.verdict;
       sub.appendChild(v);
       r.appendChild(sub);
       r.title = `${p.totals.pending} left · ${dur(p.totals.planMin)} planned · `
@@ -974,6 +999,10 @@ const Pace = (() => {
           ans.appendChild(el('span', 'pc-bad',
             `that was ${dur(nowMin() - back.start)} ago · skimming every sheet, `
             + `start at ${t12(back.skimStart)} instead`));
+        } else {
+          /* the useful number is the distance from now, same as the verdict */
+          ans.appendChild(el('span', 'pc-ok',
+            `that is ${dur(back.start - nowMin())} from now`));
         }
         r.appendChild(ans);
       }
