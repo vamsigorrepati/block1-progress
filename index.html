@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Block 1 revision — progress</title>
+<style>
+:root,:root[data-theme="light"]{--bg:#f6f7f9;--panel:#fff;--ink:#12151a;--ink2:#4a5260;--ink3:#79818f;--line:#e2e6ec;
+ --accent:#2f6f8f;--accent-soft:#e8f1f6;--exam:#9a6a00;--exam-bg:#fff6e0;--exam-line:#f0c964;
+ --corr:#a32626;--corr-bg:#fdeceb;--corr-line:#eda9a4;--ok:#0f7050;--ok-bg:#e6f5ef;--ok-line:#93d3b8;
+ --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 14px rgba(16,24,40,.045)}
+:root[data-theme="dark"]{--bg:#0e1116;--panel:#161b22;--ink:#e8ecf1;--ink2:#a8b2c0;
+ --ink3:#78828f;--line:#252c36;--accent:#67b3d6;--accent-soft:#16303d;--exam:#f0c964;--exam-bg:#2e2410;
+ --exam-line:#6b551f;--corr:#f09a92;--corr-bg:#331715;--corr-line:#7a3a34;--ok:#7fd3b0;--ok-bg:#0f2b22;
+ --ok-line:#2f6b53;--shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.28)}
+:root[data-theme="sepia"]{--bg:#ece0ca;--panel:#faf3e4;--ink:#3a2e20;--ink2:#5f5039;
+ --ink3:#8b7a62;--line:#ddcfb4;--accent:#9c5c22;--accent-soft:#f3e5cd;--exam:#8a5c00;--exam-bg:#f9ecc9;
+ --exam-line:#dcb964;--corr:#95261f;--corr-bg:#f8e1d9;--corr-line:#dda093;--ok:#2c6b45;--ok-bg:#e5eedd;
+ --ok-line:#a6c69a;--shadow:0 1px 2px rgba(90,68,38,.08),0 4px 14px rgba(90,68,38,.07)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+ -webkit-font-smoothing:antialiased}
+main{max-width:1280px;margin:0 auto;padding:48px 22px 90px}
+header{position:relative}
+#theme,#hug{position:absolute;top:2px;width:34px;height:34px;font:inherit;font-size:15px;
+ line-height:1;cursor:pointer;background:var(--panel);color:var(--ink2);border:1px solid var(--line);
+ border-radius:9px;transition:.14s}
+#theme{right:0}
+#hug{right:42px}
+#theme:hover,#hug:hover{border-color:var(--accent);color:var(--accent)}
+[data-hug="on"] #hug{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+header h1{margin:0 0 8px;font-size:31px;letter-spacing:-.025em}
+header p{margin:0;color:var(--ink2);font-size:15.5px;max-width:74ch}
+.sum{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;font-size:13px;color:var(--ink3)}
+.sum b{color:var(--ink);font-weight:650}
+/* category filter — chips are toggles; none selected means show everything */
+.filt{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:18px;
+ padding-top:16px;border-top:1px solid var(--line)}
+.filt .fl{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+ color:var(--ink3);margin-right:4px}
+.fb{display:inline-flex;align-items:center;font:inherit;font-size:12.5px;font-weight:620;
+ cursor:pointer;padding:5px 11px;border-radius:999px;border:1px solid var(--line);
+ background:var(--panel);color:var(--ink2);transition:.14s}
+.fb:hover{border-color:var(--accent);color:var(--accent)}
+.fb .n{margin-left:6px;font-size:11px;font-weight:600;color:var(--ink3)}
+/* active chip text is the panel colour, not white: --accent is a light blue in
+   the dark theme, where white would barely read */
+.fb.on{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.fb.on .n{color:var(--panel);opacity:.75}
+.fb.on:hover{color:var(--panel);opacity:.9}
+/* the dot reuses the badge palette: .disc.<slug> supplies the colour, and the
+   selector outruns the per-theme .disc rules further down so the fill is the
+   badge's text colour rather than its pale background */
+.filt .fb .dot.disc{display:inline-block;width:8px;height:8px;padding:0;margin-right:7px;
+ border-radius:50%;background:currentColor}
+.fres{font-size:12.5px;color:var(--ink3);margin-left:6px}
+.card.hide,section.hide{display:none}
+/* the card's own badge filters to that category (it must clear the .hit overlay).
+   Scoped to a page that actually HAS a filter bar: _cstoc.py lifts this whole
+   stylesheet, and on the Clinical Skills hub the badges have no handler. */
+body:has(.filt) .top .disc{position:relative;z-index:3;cursor:pointer}
+body:has(.filt) .top .disc:hover{outline:1px solid var(--accent);outline-offset:1px}
+h2.wk{display:flex;align-items:baseline;gap:12px;font-size:14px;font-weight:750;letter-spacing:.02em;
+ margin:42px 0 15px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+h2.wk .ct{font-size:11.5px;font-weight:600;color:var(--ink3);letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:13px}
+.card{position:relative;display:flex;gap:15px;background:var(--panel);border:1px solid var(--line);
+ border-radius:12px;padding:14px;box-shadow:var(--shadow);transition:.15s}
+/* hover companion — only active in "special version" mode (data-hug="on") */
+/* bottom corners rounded to sit inside the card's radius */
+.hug{position:absolute;left:0;bottom:0;width:100%;height:auto;opacity:0;pointer-events:none;
+ transition:opacity .9s ease;z-index:4;display:none;border-radius:0 0 10px 10px}
+[data-hug="on"] .hug{display:block}
+[data-hug="on"] .card:hover .hug{opacity:1}
+[data-hug="on"] .card:hover{z-index:6}
+@media(prefers-reduced-motion:reduce){.hug{transition:none}}
+.card.done{border-color:var(--ok-line)}
+.card.done:hover{border-color:var(--accent);transform:translateY(-2px)}
+.hit{position:absolute;inset:0;z-index:2;border-radius:12px}
+.body{flex:1;min-width:0}
+.top{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap}
+.disc{font-size:10px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;
+ padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.disc.bio{background:#e8f1f6;color:#2f6f8f} .disc.cell{background:#e9f3ec;color:#2c6b46}
+.disc.phys{background:#f0ecf9;color:#5b47a0} .disc.gen{background:#fdefe3;color:#96601f}
+.disc.pharm{background:#fbeaf2;color:#993263} .disc.nutr{background:#eaf5e6;color:#4a7326}
+.disc.embryo{background:#e6f2f7;color:#26718c} .disc.histo{background:#f7ecea;color:#8f4636}
+.disc.other{background:#eef0f3;color:#5a6472}
+[data-theme="dark"] .disc.bio{background:#16303d;color:#67b3d6}
+[data-theme="dark"] .disc.cell{background:#14301f;color:#7fd3b0}
+[data-theme="dark"] .disc.phys{background:#221d38;color:#a8a0e8}
+[data-theme="dark"] .disc.gen{background:#2b2015;color:#e0b381}
+[data-theme="dark"] .disc.pharm{background:#2f1622;color:#e894ba}
+[data-theme="dark"] .disc.nutr{background:#1b2b14;color:#a8d38a}
+[data-theme="dark"] .disc.embryo{background:#122a33;color:#7fc4dc}
+[data-theme="dark"] .disc.histo{background:#2e1a16;color:#dfa294}
+[data-theme="dark"] .disc.other{background:#1c222b;color:#a8b2c0}
+[data-theme="sepia"] .disc.bio{background:#e3e6ea;color:#39607a}
+[data-theme="sepia"] .disc.cell{background:#e5eedd;color:#2c6b45}
+[data-theme="sepia"] .disc.phys{background:#e9e6f0;color:#554a8a}
+[data-theme="sepia"] .disc.gen{background:#f5e6cf;color:#8a5a2b}
+[data-theme="sepia"] .disc.pharm{background:#f4e2e9;color:#8c3459}
+[data-theme="sepia"] .disc.nutr{background:#e9efd9;color:#4d6b28}
+[data-theme="sepia"] .disc.embryo{background:#e2ecef;color:#2a6274}
+[data-theme="sepia"] .disc.histo{background:#f3e4de;color:#84463a}
+[data-theme="sepia"] .disc.other{background:#efe6d5;color:#5f5039}
+.body h3{margin:0;font-size:15.5px;line-height:1.34;letter-spacing:-.012em}
+.who{color:var(--ink3);font-size:12.5px;margin-top:1px}
+.tags{display:flex;gap:11px;flex-wrap:wrap;font-size:11.5px;color:var(--ink3);margin-top:8px}
+.tags b{color:var(--ink);font-weight:640}
+.tags .ex b{color:var(--exam)} .tags .co b{color:var(--corr)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.ch{position:relative;z-index:3;font-size:11px;font-weight:600;padding:2.5px 8px;border-radius:999px;
+ border:1px solid var(--line);color:var(--ink2);text-decoration:none;background:var(--panel)}
+a.ch:hover{border-color:var(--accent);color:var(--accent)}
+.ch.rec{border-color:var(--accent-soft);color:var(--accent);background:var(--accent-soft)}
+.ch.practice{border-color:var(--exam-line);color:var(--exam);background:var(--exam-bg)}
+.ch.none{color:var(--ink3);font-weight:500;font-style:italic;border-style:dashed}
+.ch.flag{background:var(--exam-bg);color:var(--exam);border-color:var(--exam-line)}
+.go{align-self:center;color:var(--ink3);font-size:18px}
+.card.done:hover .go{color:var(--accent)}
+footer{margin-top:44px;color:var(--ink3);font-size:12.5px;line-height:1.7;max-width:78ch}
+
+.disc.cs{background:#e8f1f6;color:#2f6f8f}
+[data-theme="dark"] .disc.cs{background:#16303d;color:#67b3d6}
+[data-theme="sepia"] .disc.cs{background:#e3e6ea;color:#39607a}
+.disc.act{background:#eef0f3;color:#5a6472}
+[data-theme="dark"] .disc.act{background:#1c222b;color:#a8b2c0}
+[data-theme="sepia"] .disc.act{background:#efe6d5;color:#5f5039}
+
+/* ---- desk layout: fixed-height split view, only the panes scroll ---- */
+html,body{height:100%;overflow:hidden}
+body{font-size:15px}
+.app{display:flex;height:100%;align-items:stretch}
+aside{width:var(--sw,340px);flex:0 0 auto;display:flex;flex-direction:column;
+ background:var(--panel);border-right:1px solid var(--line);min-width:230px;max-width:60vw}
+.shead{padding:13px 15px 11px;border-bottom:1px solid var(--line)}
+.shead .r1{display:flex;align-items:center;gap:8px}
+.shead h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;flex:1}
+.shead a.back{font-size:12px;color:var(--ink3);text-decoration:none}
+.shead a.back:hover{color:var(--accent)}
+/* the lifted hub stylesheet pins #theme to the PAGE's top-right corner
+   (position:absolute;right:0) — on the desk it belongs in the sidebar header */
+.iconb{position:static;width:28px;height:28px;flex:0 0 auto;font:inherit;font-size:13px;line-height:1;
+ cursor:pointer;background:var(--panel);color:var(--ink2);border:1px solid var(--line);
+ border-radius:8px;transition:.14s}
+.shead #theme{position:static;top:auto;right:auto;width:28px;height:28px}
+.iconb:hover{border-color:var(--accent);color:var(--accent)}
+#q{width:100%;margin-top:10px;padding:7px 10px;font:inherit;font-size:13px;color:var(--ink);
+ background:var(--bg);border:1px solid var(--line);border-radius:8px}
+#q:focus{outline:none;border-color:var(--accent)}
+/* grouping switch: course weeks vs the five-day study plan */
+.modes{display:flex;align-items:center;gap:5px;margin-top:10px}
+.mb{font:inherit;font-size:11.5px;font-weight:650;cursor:pointer;padding:4px 10px;border-radius:7px;
+ border:1px solid var(--line);background:var(--panel);color:var(--ink2);transition:.12s}
+.mb:hover{border-color:var(--accent);color:var(--accent)}
+.mb.on{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+/* the pacer strip: one line of where the day says you should be */
+.pace.compact{margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;
+ background:var(--bg);cursor:pointer;transition:.14s}
+.pace.compact:hover{border-color:var(--accent)}
+.pace.compact[data-state="behind"]{border-color:var(--corr-line);background:var(--corr-bg)}
+.pace.compact[data-state="ahead"],.pace.compact[data-state="ok"]{border-color:var(--ok-line)}
+.pc-line{font-size:12px;font-weight:650;line-height:1.3}
+.pc-line b{font-weight:650}
+.pc-sub{display:flex;justify-content:space-between;gap:8px;margin-top:2px;font-size:11px;
+ color:var(--ink3)}
+.pc-v{font-weight:700;color:var(--ink2)}
+.pace.compact[data-state="behind"] .pc-v{color:var(--corr)}
+.pace.compact[data-state="ahead"] .pc-v,.pace.compact[data-state="ok"] .pc-v{color:var(--ok)}
+.mlink{margin-left:auto;font-size:11.5px;font-weight:650;color:var(--ink3);text-decoration:none}
+.mlink:hover{color:var(--accent)}
+/* a CS-evening row in study-week mode reads as an appendix to the day */
+.row.cs .t{font-weight:550}
+.row.cs{opacity:.92}
+aside .filt{margin:10px 0 0;padding:0;border:0;gap:5px}
+aside .fb{padding:3px 9px;font-size:11.5px}
+aside .filt .fl{display:none}
+.list{flex:1;overflow-y:auto;padding:8px 10px 26px}
+.gh{position:sticky;top:0;z-index:2;background:var(--panel);padding:13px 5px 6px;font-size:10.5px;
+ font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.gh span{font-weight:600;letter-spacing:.02em;text-transform:none}
+.row{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;font:inherit;
+ padding:7px 9px;margin-bottom:2px;border:1px solid transparent;border-radius:9px;
+ background:none;color:var(--ink);cursor:pointer;transition:.12s;
+ /* clears the sticky group header, which otherwise covers the row that
+    scrollIntoView() just brought to the top of the list */
+ scroll-margin-top:38px}
+.row:hover{background:var(--bg);border-color:var(--line)}
+.row.sel{background:var(--accent-soft);border-color:var(--accent)}
+.row .dot.disc{flex:0 0 auto;display:inline-block;width:8px;height:8px;padding:0;margin-top:6px;
+ border-radius:50%;background:currentColor}
+.row .tx{flex:1;min-width:0}
+.row .t{display:block;font-size:13px;line-height:1.32;font-weight:600}
+.row.sel .t{color:var(--accent)}
+.row .w{display:block;font-size:11px;color:var(--ink3);margin-top:1px;white-space:nowrap;
+ overflow:hidden;text-overflow:ellipsis}
+.row .n{flex:0 0 auto;font-size:10px;font-weight:650;color:var(--ink3);background:var(--bg);
+ border-radius:999px;padding:1px 6px;margin-top:3px}
+.row.sel .n{background:var(--panel);color:var(--accent)}
+.row.unbuilt .t{font-weight:550;color:var(--ink2)}
+.empty{padding:22px 8px;font-size:12.5px;color:var(--ink3)}
+/* drag to resize the lecture column; the width sticks */
+.grip{flex:0 0 5px;cursor:col-resize;background:transparent;margin-left:-3px;z-index:5}
+.grip:hover,.grip.on{background:var(--accent-soft)}
+
+.pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.pbar{display:flex;align-items:center;gap:12px;padding:9px 14px;background:var(--panel);
+ border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pt{min-width:0;flex:1 1 220px}
+.pt b{display:block;font-size:14.5px;font-weight:680;line-height:1.3;letter-spacing:-.01em;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt span{font-size:11.5px;color:var(--ink3)}
+/* the view switcher — a segmented control, one segment per linked thing.
+   It scrolls rather than wraps: a 7-view session (the OSCE pack) would
+   otherwise push the pane down by three rows */
+.views{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+ max-width:100%;padding:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
+.views::-webkit-scrollbar{height:0}
+.vb{font:inherit;font-size:12px;font-weight:620;cursor:pointer;padding:5px 11px;border:0;
+ border-radius:7px;background:none;color:var(--ink2);transition:.12s;white-space:nowrap}
+.vb:hover{color:var(--accent)}
+.vb.on{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+.vb .m{font-weight:600;color:var(--ink3);margin-left:5px;font-size:10.5px}
+.vb.on .m{color:var(--accent)}
+.vone{font-size:12px;font-weight:620;color:var(--ink3);padding:5px 0}
+.vone b{color:var(--ink2);font-weight:650}
+.stage{flex:1;min-height:0;position:relative;background:var(--bg)}
+.stage iframe,.stage video{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+.stage video{object-fit:contain;background:#000}
+.blank{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+ justify-content:center;gap:11px;text-align:center;padding:30px;color:var(--ink3);font-size:13.5px}
+.blank b{color:var(--ink);font-size:15px;font-weight:650}
+.blank a{display:inline-block;padding:8px 15px;border-radius:9px;background:var(--accent);color:#fff;
+ text-decoration:none;font-weight:620;font-size:13px}
+#burger{display:none}
+@media(max-width:900px){
+  #burger{display:block}
+  aside{position:fixed;inset:0 auto 0 0;z-index:30;width:min(340px,86vw);
+   transform:translateX(-102%);transition:transform .18s}
+  /* the scrim has to be attached to the OPEN state — on `aside` itself its
+     100vmax spread greys the whole page even while the drawer is off-screen */
+  body.nav aside{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+  .grip{display:none}
+  .pt{flex:1 1 auto}
+  .views,.vone{flex:1 0 100%;order:3}
+}
+
+html,body{height:auto;overflow:visible}
+main{max-width:1000px;margin:0 auto;padding:30px 20px 70px}
+h1{margin:0;font-size:24px;letter-spacing:-.02em}
+.sub{margin:5px 0 0;font-size:13px;color:var(--ink2)}
+.ro{display:inline-block;margin-left:8px;font-size:10px;font-weight:750;letter-spacing:.06em;
+ text-transform:uppercase;color:var(--ink3);border:1px solid var(--line);border-radius:999px;
+ padding:2px 8px;vertical-align:2px}
+.mets{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0 6px}
+.met{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 13px;
+ box-shadow:var(--shadow)}
+.met b{display:block;font-size:10.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;
+ color:var(--ink3)}
+.met .v{font-size:19px;font-weight:700;margin-top:2px}
+.met .v i{font-style:normal;font-size:12px;font-weight:600;color:var(--ink3)}
+.met .trk{height:5px;border-radius:99px;background:var(--bg);margin-top:8px;overflow:hidden}
+.met .trk span{display:block;height:100%;background:var(--accent);width:0}
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 0;padding-bottom:12px;
+ border-bottom:1px solid var(--line)}
+.mb{font:inherit;font-size:12.5px;font-weight:650;cursor:pointer;padding:6px 12px;border-radius:8px;
+ border:1px solid var(--line);background:var(--panel);color:var(--ink2)}
+.mb.on{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+#stamp{margin-left:auto;font-size:11.5px;color:var(--ink3)}
+table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+thead th{position:sticky;top:0;z-index:2;background:var(--panel);text-align:left;font-size:10.5px;
+ font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:9px 8px;
+ border-bottom:1px solid var(--line);white-space:nowrap}
+thead th.c{text-align:center}
+tbody.g tr.gh td{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px;
+ padding:8px 9px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+tbody.g tr.gh td .n{float:right;font-weight:650;color:var(--ink2);font-size:11.5px}
+td{padding:6px 8px;border-bottom:1px solid var(--line)}
+td.c{text-align:center;font-size:15px}
+tr.done td{opacity:.62}
+.ti{font-weight:600;line-height:1.3}
+.meta{font-size:11px;color:var(--ink3);margin-top:1px}
+.yes{color:var(--ok);font-weight:700}
+.no{color:var(--line)}
+.dot.disc{display:inline-block;width:9px;height:9px;padding:0;border-radius:50%;
+ background:currentColor}
+.cf{font-size:12px;font-weight:700}
+.co1{color:var(--corr)} .co2{color:var(--exam)} .co3{color:var(--ink2)}
+.co4{color:var(--ok)} .co5{color:var(--ok)}
+footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
+@media(max-width:760px){.hide-sm{display:none}main{padding:18px 12px 50px}}
+</style></head><body>
+<main>
+  <h1>Block 1 revision<span class="ro">read only</span></h1>
+  <p class="sub">Vamsi's pass tracker for MUSC Foundations Block 1 — which lectures he has read the
+     review sheet for and answered the question bank for. It syncs from his machine while he studies and refreshes here every 30 seconds.</p>
+
+  <div class="mets">
+    <div class="met" id="m-p1"><b>Sheets read</b><div class="v"></div><div class="trk"><span></span></div></div>
+    <div class="met" id="m-p2"><b>Question banks</b><div class="v"></div><div class="trk"><span></span></div></div>
+    <div class="met" id="m-anki"><b>Anki</b><div class="v"></div><div class="trk"><span></span></div></div>
+    <div class="met" id="m-conf"><b>Confidence</b><div class="v"></div><div class="trk"><span></span></div></div>
+  </div>
+
+  <div class="bar">
+    <button class="mb on" data-m="week">By course week</button>
+    <button class="mb" data-m="day">By study day</button>
+    <span id="stamp"></span>
+  </div>
+
+  <table id="tbl">
+    <thead><tr>
+      <th>Lecture</th><th class="c hide-sm">Cat</th>
+      <th class="c">Read</th><th class="c">Questions</th><th class="c">Anki</th><th class="c">Conf</th>
+      
+    </tr></thead>
+  </table>
+
+  <footer>Live view of a local file — when the page says it is offline, the machine serving it is
+    asleep. Nothing here can be edited.</footer>
+</main>
+<script>
+const ROWS=[{"id": "week-1-overview-of-block-1", "title": "Overview of Block 1 & Patient Interview", "who": "Dalton", "disc": "other", "discName": "Other", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-1-molecules-of-life-bonding", "title": "Molecules of Life: Bonding", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 32, "bank": true}, {"id": "week-1-learning-objectives", "title": "Learning Objectives: A Practical Overview", "who": "Dalton", "disc": "other", "discName": "Other", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-1-cell-biology-basic-concepts", "title": "Cell Biology: Basic Concepts", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-1-amino-acids-and-proteins", "title": "Amino Acids & Proteins I and II", "who": "Gangaraju", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 1, "hours": 2, "cseve": false, "qs": 25, "bank": true}, {"id": "week-1-carbohydrates", "title": "Carbohydrates I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 2, "hours": 2, "cseve": false, "qs": 26, "bank": true}, {"id": "week-1-lipids", "title": "Lipids I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 3, "hours": 2, "cseve": false, "qs": 23, "bank": true}, {"id": "week-1-cell-biology-membranes", "title": "Cell Biology: Membranes", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-1-foundations-of-physiology-i", "title": "Foundations of Physiology I", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 34, "bank": true}, {"id": "week-1-foundations-of-physiology-ii", "title": "Foundations of Physiology II", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-1-membrane-transport", "title": "Membrane Transport", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 45, "bank": true}, {"id": "week-1-catalysis", "title": "Catalysis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 4, "hours": 2, "cseve": false, "qs": 36, "bank": true}, {"id": "week-1-purines-and-pyrimidines", "title": "Purines & Pyrimidines", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-1-cell-signaling", "title": "Cell Signaling I and II", "who": "Blumer", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 49, "bank": true}, {"id": "week-1-metabolic-fuels", "title": "Metabolic Fuels", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 8, "hours": 1, "cseve": false, "qs": 26, "bank": true}, {"id": "week-2-nucleic-acids-i-ii", "title": "Nucleic Acids I and II", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 1, "hours": 2, "cseve": false, "qs": 60, "bank": true}, {"id": "week-2-mendelian-genetics-i", "title": "Mendelian Genetics I", "who": "Foil", "disc": "gen", "discName": "Genetics", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 6, "hours": 1, "cseve": false, "qs": 44, "bank": true}, {"id": "week-2-mendelian-genetics-ii", "title": "Mendelian Genetics 2 & Hardy-Weinberg", "who": "Foil", "disc": "gen", "discName": "Genetics", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 7, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-2-molecular-structure-ecm", "title": "Molecular Structure & Function of the Extracellular Matrix (ECM)", "who": "Visconti", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-2-cell-adhesion-ecm", "title": "Cell Biology: Adhesion & the Extracellular Matrix (ECM)", "who": "Visconti", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 30, "bank": true}, {"id": "week-2-cytoskeleton", "title": "Cytoskeleton", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 38, "bank": true}, {"id": "week-2-organization-of-the-genome", "title": "Organization of the Genome", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 37, "bank": true}, {"id": "week-2-gene-expression-i-ii", "title": "Fundamentals of Gene Expression I and II: Transcription (McDermott", "who": "", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 4, "hours": 2, "cseve": false, "qs": 60, "bank": true}, {"id": "week-2-rna-processing", "title": "Fundamentals of Gene Expression III: RNA Processing", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-2-translation", "title": "Fundamentals of Gene Expression IV and V: Translation and Genetic Code", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 50, "bank": true}, {"id": "week-2-pharmacodynamics-i-ii", "title": "Pharmacodynamics I and II", "who": "Blumer", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 2, "hours": 2, "cseve": false, "qs": 59, "bank": true}, {"id": "week-2-principles-of-therapeutics", "title": "Principles of Therapeutics and Adverse Drug Reactions", "who": "Blumer", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 56, "bank": true}, {"id": "week-3-nutrition-i-human-energetics", "title": "Nutrition I- Human Energetics", "who": "Phillips", "disc": "nutr", "discName": "Nutrition", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 31, "bank": true}, {"id": "week-3-nutrition-ii-assessment-diagnosis-intervention", "title": "Nutrition II- Nutrition Assessment, Diagnosis and Intervention", "who": "Phillips", "disc": "nutr", "discName": "Nutrition", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-3-introduction-to-human-embryology", "title": "Introduction to Human Embryology", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 33, "bank": true}, {"id": "week-3-early-development-week-1", "title": "Early Development: Week 1", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-3-nucleus", "title": "Nucleus", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-3-mitochondria", "title": "Mitochondria (McDermott", "who": "", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 7, "hours": 1, "cseve": false, "qs": 27, "bank": true}, {"id": "week-3-early-development-weeks-2-4", "title": "Early Development: Weeks 2-4 I and II", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 11, "hours": 2, "cseve": false, "qs": 32, "bank": true}, {"id": "week-3-cellular-basis-protein-synthesis-secretion", "title": "Cellular Basis for Protein Synthesis and Secretion I and II", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 36, "bank": true}, {"id": "week-3-endosomes-lysosomes-endocytosis", "title": "Endosomes, Lysosomes and Endocytosis I and II", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 9, "hours": 2, "cseve": false, "qs": 31, "bank": true}, {"id": "week-3-glycolysis", "title": "Glycolosis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 5, "hours": 2, "cseve": false, "qs": 32, "bank": true}, {"id": "week-3-gluconeogenesis", "title": "Gluconeogenesis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 24, "bank": true}, {"id": "week-4-maintenance-of-the-genome-i-ii-dna-replication", "title": "Maintenance of the Genome I and II: DNA Replication", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 7, "hours": 2, "cseve": false, "qs": 32, "bank": true}, {"id": "week-4-maintenance-of-the-genome-iii-iv-mutations-and-repair", "title": "Maintenance of the Genome III & IV: DNA Mutations and Repair", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 34, "bank": true}, {"id": "week-4-maintenance-of-the-genome-v-dna-rearrangements", "title": "Maintenance of the Genome V: DNA Rearrangements", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 37, "bank": true}, {"id": "week-4-tca-cycle", "title": "TCA Cycle I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 7, "hours": 2, "cseve": false, "qs": 42, "bank": true}, {"id": "week-4-introduction-to-learning-histology", "title": "Basic Concepts in Histology and Introduction to Learning Histology", "who": "McDermott", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 32, "bank": true}, {"id": "week-4-principles-of-drug-disposition", "title": "Principles of Drug Disposition", "who": "Ball", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 37, "bank": true}, {"id": "week-4-principles-of-pharmacokinetics", "title": "Principles of Pharmacokinetics", "who": "Ball", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 34, "bank": true}, {"id": "week-4-oxidative-phosphorylation", "title": "Oxidative Phosphorylation I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 44, "bank": true}, {"id": "week-4-epithelial-tissue", "title": "Epithelial Tissue", "who": "Hazen-Martin", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-4-connective-tissue", "title": "Connective Tissue", "who": "Hazen-Martin", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-4-structure-and-function-of-skeletal-muscle", "title": "Structure and Function of Skeletal Muscle", "who": "Visconti", "disc": "phys", "discName": "Physiology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-4-structure-and-function-of-smooth-muscle", "title": "Structure and Function of Smooth Muscle", "who": "Visconti", "disc": "phys", "discName": "Physiology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-5-metabolic-concepts-vitamins-coenzymes-i-and-ii", "title": "Metabolic Concepts I and II: Vitamins and Coenzymes", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 10, "hours": 2, "cseve": false, "qs": 53, "bank": true}, {"id": "week-5-protein-degradation", "title": "Protein Degredation", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 11, "hours": 1, "cseve": false, "qs": 51, "bank": true}, {"id": "week-5-central-nervous-system-tissue-neurons-and-glia", "title": "Central Nervous System Tissue: Neurons and Glia", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 52, "bank": true}, {"id": "week-5-peripheral-nervous-system-tissue", "title": "Peripheral Nervous System Tissue", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 6, "hours": 1, "cseve": false, "qs": 44, "bank": true}, {"id": "week-5-circuitry-i-ii-iii-action-potential", "title": "Circuitry I, II and III", "who": "Woodward", "disc": "phys", "discName": "Physiology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 7, "hours": 3, "cseve": false, "qs": 61, "bank": true}, {"id": "week-5-apoptosis-and-necrosis", "title": "Apoptosis and Necrosis", "who": "Dalton", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 51, "bank": true}, {"id": "week-5-circuitry-synapses-i-and-ii", "title": "Circuitry: Synapses I and II", "who": "Woodward", "disc": "phys", "discName": "Physiology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 60, "bank": true}, {"id": "flipping-for-pass-labs-i-and-ii", "title": "Flipping for PASS Labs I and II", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 2, "cseve": false, "qs": 0, "bank": false}, {"id": "block-1-case-based-applications", "title": "Block 1 Case-Based Applications", "who": "Dalton and McDermott", "disc": "other", "discName": "Other", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "fundamentals-of-physical-diagnosis", "title": "Fundamentals of Physical Diagnosis", "who": "Ashley Duckett, MD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "vital-signs", "title": "Vital Signs", "who": "Ashley Duckett, MD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 503, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "medical-interviewing", "title": "Medical Interviewing I and II", "who": "Ritchie", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 500, "hours": 2, "cseve": true, "qs": 0, "bank": false}, {"id": "cultural-competency", "title": "Cultural Competency I", "who": "Shungu", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "health-disparities-and-social-determinants", "title": "Health Disparities and Social Determinants", "who": "Haley", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "gullah-geechee-culture-and-society", "title": "Gullah Geechee: Culture and Society — Implications for Health Care", "who": "J. Herman Blake, PhD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 3: Aug. 31st – Sept. 4th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "evidence-based-medicine", "title": "Terms and Concepts: Evidence Based Medicine", "who": "San Giovanni", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "translational-research", "title": "Translational Research", "who": "Brady", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "motivational-interviewing", "title": "Motivational Interviewing", "who": "Santa Ana", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "introduction-to-ethics", "title": "Introduction to Ethics", "who": "Tanious", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "scientific-method", "title": "Scientific Method", "who": "Williams", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "introduction-to-research-ethics", "title": "Introduction to Research Ethics", "who": "Boan", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "physician-patient-relationship", "title": "Ethics TBL 1: The Physician-Patient Relationship", "who": "Tanious", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}], WEEKS=["B1 Week 1: Aug 17-21", "B1: Week 2: Aug 24-28", "B1: Week 3: Aug 31-Sep 4", "B1: Week 4: Sep 7-Sep 11", "B1: Week 5/6: Sep 7-Sep 25", "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "Clinical Skills · B1 Week 3: Aug. 31st – Sept. 4th", "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "Clinical Skills · B1 Week 5: Sept. 14th – 18th"], DAYS=["Saturday Sep 19 — biochem foundations + metabolism", "Sunday Sep 20 — cell biology, membranes, matrix", "Monday Sep 21 — nucleotides through DNA", "Tuesday Sep 22 — tissue, neuro, embryology", "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "Not on the plan"], NOTES=false, SRC="tracker.json";
+const $=s=>document.querySelector(s);
+let S={}, mode='week', last=0;
+
+/* theme follows the viewer's own OS setting; there is no toggle to persist */
+document.documentElement.setAttribute('data-theme',
+  matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+
+const PASSES=[['p1','P1 — sheet read'],['p2','P2 — questions'],['anki','Anki']];
+const groupsOf=()=>mode==='day'?DAYS:WEEKS;
+const keyOf=r=>mode==='day'?(r.dayGroup||'Not on the plan'):r.week;
+const sortRows=rs=>mode==='day'?rs.slice().sort((a,b)=>a.dayOrder-b.dayOrder):rs;
+const st=id=>S[id]||{};
+const isDone=r=>{const s=st(r.id);return !!s.p1&&(!!s.p2||!r.bank);};
+
+function render(){
+  const tbl=$('#tbl');
+  tbl.querySelectorAll('tbody').forEach(t=>t.remove());
+  groupsOf().forEach(g=>{
+    const rs=sortRows(ROWS.filter(r=>keyOf(r)===g));
+    if(!rs.length)return;
+    const tb=document.createElement('tbody');tb.className='g';
+    const hr=document.createElement('tr');hr.className='gh';
+    const td=document.createElement('td');td.colSpan=NOTES?7:6;
+    td.appendChild(document.createTextNode(g));
+    const n=document.createElement('span');n.className='n';
+    const p1=rs.filter(r=>st(r.id).p1).length,p2=rs.filter(r=>st(r.id).p2).length;
+    n.textContent='read '+p1+'/'+rs.length+' · questions '+p2+'/'+rs.length;
+    td.appendChild(n);hr.appendChild(td);tb.appendChild(hr);
+    rs.forEach(r=>tb.appendChild(row(r)));
+    tbl.appendChild(tb);
+  });
+  PASSES.forEach(([k])=>{
+    const done=ROWS.filter(r=>st(r.id)[k]).length;
+    const el=$('#m-'+k);
+    el.querySelector('.v').innerHTML=done+' <i>/ '+ROWS.length+'</i>';
+    el.querySelector('.trk span').style.width=(100*done/ROWS.length).toFixed(1)+'%';
+  });
+  const cs=ROWS.map(r=>+st(r.id).conf).filter(Boolean);
+  const avg=cs.length?(cs.reduce((a,b)=>a+b,0)/cs.length).toFixed(1):'–';
+  $('#m-conf .v').innerHTML=avg+' <i>/ 5 over '+cs.length+'</i>';
+  $('#m-conf .trk span').style.width=(cs.length?100*(avg/5):0)+'%';
+}
+
+function row(r){
+  const s=st(r.id), tr=document.createElement('tr');
+  if(isDone(r))tr.className='done';
+  const c1=document.createElement('td');
+  const t=document.createElement('div');t.className='ti';t.textContent=r.title;
+  const m=document.createElement('div');m.className='meta';
+  m.textContent=[r.who,r.discName,r.hours>1?(r.hours===3?'TRIPLE':'DOUBLE'):''].filter(Boolean).join(' · ');
+  c1.append(t,m);tr.appendChild(c1);
+  const c2=document.createElement('td');c2.className='c hide-sm';
+  c2.innerHTML='<i class="dot disc '+r.disc+'"></i>';tr.appendChild(c2);
+  [['p1',1],['p2',1],['anki',1]].forEach(([k])=>{
+    const td=document.createElement('td');td.className='c';
+    const on=!!s[k]||(k==='p2'&&!r.bank&&!!s.p1);
+    td.innerHTML=s[k]?'<span class="yes">✓</span>'
+                 :(k==='p2'&&!r.bank)?'<span class="no">–</span>'
+                 :'<span class="no">·</span>';
+    td.title=(k==='p2'&&!r.bank)?'no question bank for this lecture':'';
+    tr.appendChild(td);
+  });
+  const c6=document.createElement('td');c6.className='c';
+  c6.innerHTML=s.conf?'<span class="cf co'+s.conf+'">'+s.conf+'</span>':'<span class="no">·</span>';
+  tr.appendChild(c6);
+  if(NOTES){const c7=document.createElement('td');c7.className='hide-sm';
+    c7.textContent=s.note||'';c7.style.fontSize='11.5px';c7.style.color='var(--ink3)';
+    tr.appendChild(c7);}
+  return tr;
+}
+
+function stamp(){
+  if(!last){$('#stamp').textContent='waiting for data…';return;}
+  const s=Math.round((Date.now()-last)/1000);
+  $('#stamp').textContent='updated '+(s<60?s+'s':Math.round(s/60)+'m')+' ago';
+}
+function pull(){
+  /* the cache-buster matters on Pages: its CDN would otherwise serve the copy
+     it cached before the last push */
+  fetch(SRC+(SRC.indexOf('?')<0?'?t=':'&t=')+Date.now(),{cache:'no-store'})
+    .then(r=>r.ok?r.json():null).then(d=>{
+    if(d&&d.rows){S=d.rows;last=Date.now();render();}
+    stamp();
+  }).catch(()=>{$('#stamp').textContent="could not load the latest progress";});
+}
+document.querySelectorAll('.mb').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.m;
+  document.querySelectorAll('.mb').forEach(x=>x.classList.toggle('on',x.dataset.m===mode));
+  render();
+});
+render(); pull();
+setInterval(pull,30000);      /* live enough to watch, light enough to ignore */
+setInterval(stamp,10000);
+</script>
+</body></html>
