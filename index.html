@@ -531,10 +531,16 @@ const Pace = (() => {
   }
 
   /* ---------- cost model ---------- */
+  /* Cost is what is LEFT, pass by pass. A lecture whose sheet is read but whose
+     bank is unanswered owes its questions and nothing else — the planner used to
+     hold the whole lecture until both were ticked, which is why ticking "read"
+     re-laid the day around a block already finished. */
   function cost(it, o) {
+    const st = o.state ? o.state(it) : null;
     const w = it.words || 0;
-    const read = w ? (w * (o.skim.has(it.id) ? SKIM_FRACTION : 1)) / o.wpm : 0;
-    const q = (o.noQ && o.noQ.has(it.id)) ? 0
+    const read = (st && st.p1) || !w ? 0
+               : (w * (o.skim.has(it.id) ? SKIM_FRACTION : 1)) / o.wpm;
+    const q = (st && st.p2) || (o.noQ && o.noQ.has(it.id)) ? 0
             : (it.qs || 0) * (o.perQ / 60000);   // board vignettes only
     return {read, q, total: read + q};
   }
@@ -585,6 +591,7 @@ const Pace = (() => {
       cluster: opts.cluster || DEF.cluster,
       skim: new Set(opts.skim || []),
       noQ: new Set(opts.noQ || []),        // banks you have opted out of today
+      state: opts.state,                   // per-pass progress
     };
     /* The day's start is where the day BEGAN, not where the remaining work
        begins. Once anything is ticked the rest has to be laid out from now —
@@ -608,7 +615,7 @@ const Pace = (() => {
 
     /* Only unfinished work is scheduled, and the CS evening block stays last
        however the rest is chunked. */
-    const pending = opts.items.filter(i => !opts.isDone(i)).filter(i => cost(i, o).total > 0);
+    const pending = opts.items.filter(i => cost(i, o).total > 0);
     const sci = pending.filter(i => !i.cseve);
     const cs = pending.filter(i => i.cseve);
 
@@ -689,9 +696,9 @@ const Pace = (() => {
       wpm: +opts.wpm || DEF.wpm, perQ: opts.perQ || perQms(),
       breakMin: opts.breakPerHour == null ? DEF.breakPerHour : +opts.breakPerHour,
       cluster: opts.cluster || DEF.cluster, skim: new Set(),
-      noQ: new Set(opts.noQ || []),
+      noQ: new Set(opts.noQ || []), state: opts.state,
     };
-    const pending = opts.items.filter(i => !opts.isDone(i)).filter(i => cost(i, o).total > 0);
+    const pending = opts.items.filter(i => cost(i, o).total > 0);
     const work = sum(pending, o, c => c.total);
     const breaks = Math.floor(work / MAX_RUN) * o.breakMin;
     const skimO = Object.assign({}, o, {skim: new Set(pending.map(i => i.id))});
@@ -810,7 +817,7 @@ const Pace = (() => {
       }
       /* the same day costed backwards: when would it have to start? */
       const back = backplan({items, finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
-                             noQ: S.noQ || [], isDone: isDone.done});
+                             noQ: S.noQ || [], state: isDone.state, isDone: isDone.done});
       /* In backwards mode the timetable IS the answer laid out, so it runs from
          the computed start — with a minute of slack so rounding can't trigger a
          skim in a plan that fits by construction. */
@@ -820,7 +827,7 @@ const Pace = (() => {
                       /* only for the day being lived: a plan for Tuesday keeps
                          its own shape */
                       rollForward: S.mode !== 'back' && isToday(day),
-                      isDone: isDone.done});
+                      state: isDone.state, isDone: isDone.done});
       /* every item of the day, finished or not — `now()` needs the finished
          ones to weigh what you have actually got through */
       const n = now(p, isDone, items);
@@ -1075,15 +1082,16 @@ function schedule(){
                   words:r.words||0,qs:r.qs||0,cseve:r.cseve}))
         .sort((a,b)=>a.order-b.order);
       const done=i=>{const s=st(i.id);return !!s.p1&&(!!s.p2||!i.qs);};
+      const pass=i=>{const s=st(i.id);return {p1:!!s.p1,p2:!!s.p2||!i.qs};};
       /* If he has set only a finish time, the honest thing to show is the
          backwards answer — when the day has to begin to fit — rather than
          guessing with the VIEWER's clock, which may be another timezone. */
       const fin=Pace.parseHHMM(w.fi||'21:00');
       const back=Pace.backplan({items,finish:fin,wpm:PACE.wpm||230,perQ:PACE.perQ,
-                                noQ:PACE.noQ||[],isDone:done});
+                                noQ:PACE.noQ||[],state:pass,isDone:done});
       const startMin=(PACE.days[todayDay]||{}).start!=null
         ? (PACE.days[todayDay]||{}).start : back.start;
-      const p=Pace.plan({items,start:startMin,rollForward:true,
+      const p=Pace.plan({items,start:startMin,rollForward:true,state:pass,
                          finish:fin,wpm:PACE.wpm||230,
                          perQ:PACE.perQ,        /* his pace, not this browser's */
                          noQ:PACE.noQ||[],isDone:done});
