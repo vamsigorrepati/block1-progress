@@ -469,7 +469,9 @@ const Pace = (() => {
     fetch('api/pace').then(r => r.ok ? r.json() : null).then(d => {
       if (!d) return;
       const s = settings(), before = JSON.stringify(s);
-      ['wpm', 'finish', 'breakPerHour', 'cluster', 'mode', 'day'].forEach(k => {
+      /* deliberately not 'day': which day another device is looking at is not a
+         fact about this one, and importing it is how the panel ends up on Sunday */
+      ['wpm', 'finish', 'breakPerHour', 'cluster', 'mode', 'secPerQ', 'order'].forEach(k => {
         if (d[k] !== undefined && s[k] === undefined) s[k] = d[k];
       });
       Object.keys(d.days || {}).forEach(day => {
@@ -726,6 +728,8 @@ const Pace = (() => {
                    /* a block whose lectures have that pass ticked */
                    done: !!st && items.length > 0 &&
                          items.every(i => (r.kind === 'read' ? st(i).p1 : st(i).p2))});
+      /* the segment that finishes this pass — see the overdue rule in now() */
+      if (r.left - take < 0.01) blocks[blocks.length - 1].final = true;
       t += take; since += take; r.left -= take;
       if (r.left < 0.01) qi++;
     }
@@ -816,7 +820,11 @@ const Pace = (() => {
          ahead  — the block the clock is in is already ticked; you are as early
                   as the time left in it (and in any ticked blocks after it).
        Anything else is on track. */
-    const overdue = p.blocks.find(b => b.kind !== 'break' && b.end <= t && !b.done);
+    /* Only the LAST segment of a pass can be overdue. A long sheet is split
+       across a break — "Glycolysis (cont.)" — and you cannot tick it until the
+       whole thing is read, so judging the first half at the break called you
+       late for work that was still in progress by design. */
+    const overdue = p.blocks.find(b => b.kind !== 'break' && b.final && b.end <= t && !b.done);
     let aheadTo = null;
     if (!overdue) {
       for (let k = 0; k < p.blocks.length; k++) {
@@ -897,7 +905,10 @@ const Pace = (() => {
 
     function build() {
       const isDone = state();
-      const day = S.day || defaultDay(opts.days, opts.items, isDone);
+      /* A day picked yesterday is not a choice about today. Without this the
+         panel can open on the wrong day and quietly plan and score against it. */
+      const picked = S.day && S.dayOn === studyDate() ? S.day : null;
+      const day = picked || defaultDay(opts.days, opts.items, isDone);
       const items = opts.items.filter(i => i.day === day);
       const T = dayTimes(S, day);
       const start = T.start != null ? T.start : nowMin();
@@ -970,7 +981,7 @@ const Pace = (() => {
         o.value = d; if (d === day) o.selected = true;
         sel.appendChild(o);
       });
-      sel.onchange = () => { S = setSettings({day: sel.value}); render(); };
+      sel.onchange = () => { S = setSettings({day: sel.value, dayOn: studyDate()}); render(); };
       bar.append(lab('Day', sel));
 
       if (S.mode !== 'back') {
