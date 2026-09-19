@@ -868,7 +868,11 @@ const Pace = (() => {
              : delta > 0 ? `${dur(delta)} ahead` : `${dur(-delta)} behind`,
       verdict: t < p.start ? 'starts ' + t12(p.start)
              : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
-             : Math.abs(delta) < 8
+             /* No grace once something is actually late: a tolerance that let
+                6:01 pm still read "on track" next to a 6:00 pm deadline is the
+                tracker disagreeing with itself. Ahead keeps its band — a couple
+                of minutes early is not worth a badge. */
+             : !overdue && delta < 8
                  ? (dueNext ? `on track — ${names(dueNext.items, 1)} `
                               + `${dueNext.kind === 'read' ? 'reading' : 'questions'} `
                               + `due ${t12(dueNext.end)}`
@@ -880,7 +884,7 @@ const Pace = (() => {
                            + ` was due ${t12(overdue.end)}`,
       state: t < p.start ? 'pre'
            : ended ? (remaining > 2 ? 'behind' : 'ok')
-           : Math.abs(delta) < 8 ? 'ok' : delta > 0 ? 'ahead' : 'behind',
+           : overdue ? 'behind' : delta >= 8 ? 'ahead' : 'ok',
     };
   }
 
