@@ -5,10 +5,11 @@
  "cluster": 4,
  "days": {
   "Saturday Sep 19 \u2014 biochem foundations + metabolism": {
-   "finish": "23:30"
+   "finish": "23:30",
+   "start": 420
   }
  },
- "mode": "back",
+ "mode": "fit",
  "date": "2026-09-18",
  "noQ": [
   "week-1-molecules-of-life-bonding",
