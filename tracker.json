@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T15:18:28.525Z",
+ "updated": "2026-09-19T15:19:04.115Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -8,8 +8,8 @@
    "p2": false
   },
   "week-1-molecules-of-life-bonding": {
-   "p1": false,
-   "at": 1789831108522,
+   "p1": true,
+   "at": 1789831144114,
    "conf": "5"
   },
   "week-1-learning-objectives": {},
