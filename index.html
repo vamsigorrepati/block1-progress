@@ -586,7 +586,11 @@ const Pace = (() => {
       skim: new Set(opts.skim || []),
       noQ: new Set(opts.noQ || []),        // banks you have opted out of today
     };
-    const start = opts.start;
+    /* The day's start is where the day BEGAN, not where the remaining work
+       begins. Once anything is ticked the rest has to be laid out from now —
+       otherwise finishing a lecture at 12:40 re-times the whole afternoon from
+       11:00 and every block reads as already overdue. */
+    const start = opts.rollForward ? Math.max(opts.start, nowMin()) : opts.start;
     /* A small-hours finish means tomorrow (11:00 -> 01:30 is a real study
        night). Handled HERE so every caller gets it — the shared page calls
        plan() directly and was producing an empty day. */
@@ -812,7 +816,11 @@ const Pace = (() => {
          skim in a plan that fits by construction. */
       const p = plan({items, start: S.mode === 'back' ? back.start - 1 : start,
                       finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
-                      skim: S.skim || [], noQ: S.noQ || [], isDone: isDone.done});
+                      skim: S.skim || [], noQ: S.noQ || [],
+                      /* only for the day being lived: a plan for Tuesday keeps
+                         its own shape */
+                      rollForward: S.mode !== 'back' && isToday(day),
+                      isDone: isDone.done});
       /* every item of the day, finished or not — `now()` needs the finished
          ones to weigh what you have actually got through */
       const n = now(p, isDone, items);
@@ -1002,6 +1010,9 @@ const Pace = (() => {
     return {render};
   }
 
+  const todayLabel = () => new Date().toString().slice(4, 10).replace(/ 0/, ' ');
+  const isToday = day => !!day && day.indexOf(todayLabel()) >= 0;
+
   /* Today if today is in the plan, else the first day with work left. */
   function defaultDay(days, items, isDone) {
     const today = new Date().toDateString().slice(4, 10).replace(/ 0/, ' ');   // "Sep 19"
@@ -1012,7 +1023,7 @@ const Pace = (() => {
   }
 
   return {plan, backplan, now, mount, cost, perQms, ticks, settings, setSettings,
-          dayTimes, setDayTimes,
+          dayTimes, setDayTimes, isToday,
           hhmm, t12, parseHHMM, nowMin, dur, studyDate, SKIM_FRACTION};
 })();
 </script>
@@ -1072,7 +1083,7 @@ function schedule(){
                                 noQ:PACE.noQ||[],isDone:done});
       const startMin=(PACE.days[todayDay]||{}).start!=null
         ? (PACE.days[todayDay]||{}).start : back.start;
-      const p=Pace.plan({items,start:startMin,
+      const p=Pace.plan({items,start:startMin,rollForward:true,
                          finish:fin,wpm:PACE.wpm||230,
                          perQ:PACE.perQ,        /* his pace, not this browser's */
                          noQ:PACE.noQ||[],isDone:done});
