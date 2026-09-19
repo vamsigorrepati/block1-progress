@@ -417,7 +417,7 @@ const Pace = (() => {
      90 s an item. His own median on this site is about half that, but a bank
      answered at speed is not the pace the exam is scored at, so the day is
      planned at exam time and the field is editable. */
-  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4, secPerQ: 90};
+  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4, secPerQ: 90, order: 'reading'};
   const MAX_RUN = 55;                     // minutes of work before a break is due
   const OVERSHOOT = 10;                   // ...unless the block only just exceeds it
   const SEED_Q_MS = 75000;                // practice/dashboard.js CONST.SEED_MS
@@ -637,6 +637,7 @@ const Pace = (() => {
       perQ: opts.perQ || perQms(),
       breakMin: opts.breakPerHour == null ? DEF.breakPerHour : +opts.breakPerHour,
       cluster: opts.cluster || DEF.cluster,
+      order: opts.order || DEF.order,
       skim: new Set(opts.skim || []),
       noQ: new Set(opts.noQ || []),        // banks you have opted out of today
       state: opts.state,                   // per-pass progress
@@ -669,7 +670,15 @@ const Pace = (() => {
     const keptSci = f.work.filter(i => !i.cseve), keptCs = f.work.filter(i => i.cseve);
     const oo = Object.assign({}, o, {skim: f.skim});
 
-    const groups = clusters(keptSci, o.cluster).concat(keptCs.length ? [keptCs] : []);
+    /* Order of the day. 'reading' does every sheet first and every bank after,
+       which is how a day of long sheets actually gets worked; 'lecture' pairs
+       each sheet with its own bank before moving on. It matters beyond taste:
+       the verdict calls a block overdue when its window closes unticked, so a
+       plan whose order is not the order you work in reports you hours late for
+       blocks you deliberately stepped over. */
+    const groups = o.order === 'lecture'
+      ? clusters(keptSci, o.cluster).concat(keptCs.length ? [keptCs] : [])
+      : [keptSci].concat(keptCs.length ? [keptCs] : []);
     /* ONE LECTURE PER BLOCK. The cluster still decides the order — read these
        three sheets, then answer those three banks — but each sheet and each
        bank is its own block, because that is how the work is actually done.
@@ -746,7 +755,8 @@ const Pace = (() => {
     const o = {
       wpm: +opts.wpm || DEF.wpm, perQ: opts.perQ || perQms(),
       breakMin: opts.breakPerHour == null ? DEF.breakPerHour : +opts.breakPerHour,
-      cluster: opts.cluster || DEF.cluster, skim: new Set(),
+      cluster: opts.cluster || DEF.cluster, order: opts.order || DEF.order,
+      skim: new Set(),
       noQ: new Set(opts.noQ || []), state: opts.state,
     };
     const pending = opts.items.filter(i => cost(i, o).total > 0);
@@ -903,13 +913,14 @@ const Pace = (() => {
       }
       /* the same day costed backwards: when would it have to start? */
       const back = backplan({items, finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
-                             noQ: S.noQ || [], state: isDone.state, isDone: isDone.done});
+                             noQ: S.noQ || [], order: S.order,
+                             state: isDone.state, isDone: isDone.done});
       /* In backwards mode the timetable IS the answer laid out, so it runs from
          the computed start — with a minute of slack so rounding can't trigger a
          skim in a plan that fits by construction. */
       const p = plan({items, start: S.mode === 'back' ? back.start - 1 : start,
                       finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
-                      skim: S.skim || [], noQ: S.noQ || [],
+                      skim: S.skim || [], noQ: S.noQ || [], order: S.order,
                       /* only for the day being lived: a plan for Tuesday keeps
                          its own shape */
                       state: isDone.state, isDone: isDone.done});
@@ -983,6 +994,15 @@ const Pace = (() => {
 
       /* the two modes: squeeze the day into the time I have, or tell me when
          the day has to begin */
+      const ord = el('div', 'pc-modes');
+      [['reading', 'Reading, then questions'], ['lecture', 'Lecture by lecture']]
+        .forEach(([m, txt]) => {
+          const b = el('button', 'pc-mb' + ((S.order || DEF.order) === m ? ' on' : ''), txt);
+          b.onclick = () => { S = setSettings({order: m}); render(); };
+          ord.appendChild(b);
+        });
+      bar.append(lab('Order', ord));
+
       const modes = el('div', 'pc-modes');
       [['fit', 'Fit my day'], ['back', 'When must I start?']].forEach(([m, t]) => {
         const b = el('button', 'pc-mb' + ((S.mode || 'fit') === m ? ' on' : ''), t);
