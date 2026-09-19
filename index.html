@@ -798,30 +798,32 @@ const Pace = (() => {
       if (d.p2) { doneMin += cost(i, o).q; doneCount++; }
     });
 
-    /* Where you are on the timetable: walk it until its cumulative WORK equals
-       the work you have finished, and read off the clock there. It has to be
-       cumulative work rather than "the last block I ticked" — you do the day in
-       your own order, so a ticked block sitting late in the plan would otherwise
-       credit you for reaching a time you have not reached. Breaks count in the
-       walk because they are part of when a block is due to end. */
-    let acc = 0, atClock = p.start;
-    for (let k = 0; k < p.blocks.length; k++) {
-      const b = p.blocks[k];
-      if (b.kind === 'break') { if (acc >= doneMin - 0.01) break; atClock = b.end; continue; }
-      if (acc + b.min <= doneMin + 0.01) { acc += b.min; atClock = b.end; continue; }
-      atClock = b.start + Math.max(0, doneMin - acc);   // part-way through a block
-      acc = doneMin;
-      break;
+    /* Ahead and behind are both measured against ONE block, not against a
+       running total of work:
+         behind — the first block whose window has closed with the work still
+                  unticked; you are as late as the time since it was due to end.
+         ahead  — the block the clock is in is already ticked; you are as early
+                  as the time left in it (and in any ticked blocks after it).
+       Anything else is on track. */
+    const overdue = p.blocks.find(b => b.kind !== 'break' && b.end <= t && !b.done);
+    let aheadTo = null;
+    if (!overdue) {
+      for (let k = 0; k < p.blocks.length; k++) {
+        const b = p.blocks[k];
+        if (b.end <= t) continue;                 // already passed, and not overdue
+        if (b.kind === 'break') { if (aheadTo === null) break; continue; }
+        if (!b.done) break;                       // the first unfinished block stops it
+        aheadTo = b.end;
+      }
     }
-    if (doneMin > acc) atClock = p.end;                 // more done than the day holds
+    const atClock = overdue ? overdue.end : (aheadTo || t);
 
     /* Being part-way through the block the plan puts you in is not lateness —
        it is doing the work. So lateness is measured to the START of the current
        block, never to the current moment: you only fall behind once a block's
        window closes with the work still unticked. Ahead is still measured to
        now, because finished work really is banked time. */
-    const ref = block ? Math.min(t, block.start) : t;
-    const delta = atClock >= t ? atClock - t : -Math.max(0, ref - atClock);
+    const delta = overdue ? -(t - overdue.end) : (aheadTo ? aheadTo - t : 0);
     const elapsed = Math.max(1, t - p.start);
     const remaining = Math.max(0, p.totals.planMin - doneMin);
     /* Once there is real throughput to measure, trust it over the model. */
@@ -843,9 +845,10 @@ const Pace = (() => {
              : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
              : Math.abs(delta) < 8 ? 'on track'
              /* say it in clock terms: the plan had this done by <time> */
-             : delta > 0 ? `${dur(delta)} ahead — plan has you here at ${t12(atClock)}`
-                         : `${dur(-delta)} behind — plan is at ${t12(ref)}, `
-                           + `your ticks reach ${t12(atClock)}`,
+             : delta > 0 ? `${dur(delta)} ahead — ticked through ${t12(aheadTo)}`
+                         : `${dur(-delta)} behind — ${names(overdue.items, 2)}`
+                           + ` ${overdue.kind === 'read' ? 'reading' : 'questions'}`
+                           + ` was due ${t12(overdue.end)}`,
       state: t < p.start ? 'pre'
            : ended ? (remaining > 2 ? 'behind' : 'ok')
            : Math.abs(delta) < 8 ? 'ok' : delta > 0 ? 'ahead' : 'behind',
