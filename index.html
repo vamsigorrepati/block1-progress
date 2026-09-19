@@ -455,6 +455,27 @@ const Pace = (() => {
     s.days = s.days || {};
     return Object.assign({}, DEF, s);
   }
+  /* Settings lived in localStorage alone, so every origin, tab and device
+     invented its own day: the desk strip would plan from "now" while the
+     tracker planned from 11:00, and the two reported different deficits for the
+     same day. pace.json on disk is the shared copy — pull it in, newest per day
+     wins, exactly the rule the server applies to writes. */
+  function refreshPace(cb) {
+    fetch('api/pace').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      const s = settings(), before = JSON.stringify(s);
+      ['wpm', 'finish', 'breakPerHour', 'cluster', 'mode', 'day'].forEach(k => {
+        if (d[k] !== undefined && s[k] === undefined) s[k] = d[k];
+      });
+      Object.keys(d.days || {}).forEach(day => {
+        const mine = s.days[day], theirs = d.days[day];
+        if (!mine || (theirs.at || 0) > (mine.at || 0)) s.days[day] = theirs;
+      });
+      if (JSON.stringify(s) === before) return;
+      try { localStorage.setItem(K, JSON.stringify(s)); } catch (e) {}
+      cb && cb(s);
+    }).catch(() => {});
+  }
   function dayTimes(s, day) {
     return Object.assign({finish: s.finish || DEF.finish}, (s.days || {})[day] || {});
   }
@@ -1034,8 +1055,9 @@ const Pace = (() => {
     /* The clock moves on its own — and so do the ticks, which may be made in
        another tab or on another device. Re-read them every minute, not once at
        load, or the verdict drifts away from the truth all day. */
-    setInterval(() => { refreshTicks(); render(); }, 60000);
+    setInterval(() => { refreshTicks(); refreshPace(); render(); }, 60000);
     refreshTicks(() => render());
+    refreshPace(() => { S = settings(); render(); });
     refreshPerQ(() => render());
     return {render};
   }
