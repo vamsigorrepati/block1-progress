@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T18:06:25.888Z",
+ "updated": "2026-09-19T18:58:13.110Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -21,11 +21,14 @@
   },
   "week-1-carbohydrates": {
    "p1": true,
-   "at": 1789838180529
+   "at": 1789844290106,
+   "p2": true,
+   "conf": "3"
   },
   "week-1-lipids": {
    "p1": true,
-   "at": 1789841185886
+   "at": 1789844293108,
+   "conf": "3"
   },
   "week-1-cell-biology-membranes": {},
   "week-1-foundations-of-physiology-i": {},
