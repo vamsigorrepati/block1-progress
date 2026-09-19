@@ -9,5 +9,9 @@
   }
  },
  "mode": "back",
- "date": "2026-09-18"
+ "date": "2026-09-18",
+ "noQ": [
+  "week-1-molecules-of-life-bonding",
+  "week-1-amino-acids-and-proteins"
+ ]
 }
