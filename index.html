@@ -843,6 +843,12 @@ const Pace = (() => {
        window closes with the work still unticked. Ahead is still measured to
        now, because finished work really is banked time. */
     const delta = overdue ? -(t - overdue.end) : (aheadTo ? aheadTo - t : 0);
+    /* What the clock is currently waiting on: the next unticked pass to fall due.
+       "On track" on its own reads as approval; what it actually means is that
+       nothing has come due yet, and the useful half of that is WHEN something
+       does — a sheet split across a break is not late at the break, it is late
+       at the end of its second half. */
+    const dueNext = p.blocks.find(b => b.kind !== 'break' && b.final && !b.done) || null;
     const elapsed = Math.max(1, t - p.start);
     const remaining = Math.max(0, p.totals.planMin - doneMin);
     /* Once there is real throughput to measure, trust it over the model. */
@@ -855,14 +861,18 @@ const Pace = (() => {
     return {
       t, block, next, plannedMin: planned, doneMin, doneCount, deltaMin: delta,
       rate, projFinish, ended, remainingMin: remaining,
-      atClock,
+      atClock, due: dueNext,
       verdictShort: t < p.start ? 'starts ' + t12(p.start)
              : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
              : Math.abs(delta) < 8 ? 'on track'
              : delta > 0 ? `${dur(delta)} ahead` : `${dur(-delta)} behind`,
       verdict: t < p.start ? 'starts ' + t12(p.start)
              : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
-             : Math.abs(delta) < 8 ? 'on track'
+             : Math.abs(delta) < 8
+                 ? (dueNext ? `on track — ${names(dueNext.items, 1)} `
+                              + `${dueNext.kind === 'read' ? 'reading' : 'questions'} `
+                              + `due ${t12(dueNext.end)}`
+                            : 'on track')
              /* say it in clock terms: the plan had this done by <time> */
              : delta > 0 ? `${dur(delta)} ahead — ticked through ${t12(aheadTo)}`
                          : `${dur(-delta)} behind — ${names(overdue.items, 2)}`
