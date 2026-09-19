@@ -274,6 +274,13 @@ html,body{height:auto;overflow:visible}
 .dayc.today{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .dayc.today b{color:var(--accent)}
 .dayc.unset{border-style:dashed}
+/* legend for the CAT column */
+.key{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.keylab{font-size:10.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;
+ color:var(--ink3);margin-right:2px}
+.keyc{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink2);
+ border:1px solid var(--line);border-radius:999px;padding:3px 9px;background:var(--panel)}
+.keyc b{font-weight:650;color:var(--ink3);font-size:10.5px}
 /* the day's blocks */
 .tt{margin-top:10px;border-top:1px solid var(--line)}
 .ttr{display:flex;align-items:baseline;gap:10px;padding:5px 2px;border-bottom:1px solid var(--line);
@@ -347,9 +354,10 @@ footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
   <div class="mets">
     <div class="met" id="m-p1"><b>Sheets read</b><div class="v"></div><div class="trk"><span></span></div></div>
     <div class="met" id="m-p2"><b>Question banks</b><div class="v"></div><div class="trk"><span></span></div></div>
-    <div class="met" id="m-anki"><b>Anki</b><div class="v"></div><div class="trk"><span></span></div></div>
     <div class="met" id="m-conf"><b>Confidence</b><div class="v"></div><div class="trk"><span></span></div></div>
   </div>
+
+  <div class="key" id="key"></div>
 
   <div class="bar">
     <button class="mb on" data-m="week">By course week</button>
@@ -360,7 +368,7 @@ footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
   <table id="tbl">
     <thead><tr>
       <th>Lecture</th><th class="c hide-sm">Cat</th>
-      <th class="c">Read</th><th class="c">Questions</th><th class="c">Anki</th><th class="c">Conf</th>
+      <th class="c">Read</th><th class="c">Questions</th><th class="c">Conf</th>
       
     </tr></thead>
   </table>
@@ -1110,7 +1118,7 @@ function schedule(){
   box.appendChild(row);
 }
 
-const PASSES=[['p1','P1 — sheet read'],['p2','P2 — questions'],['anki','Anki']];
+const PASSES=[['p1','P1 — sheet read'],['p2','P2 — questions']];
 const groupsOf=()=>mode==='day'?DAYS:WEEKS;
 const keyOf=r=>mode==='day'?(r.dayGroup||'Not on the plan'):r.week;
 const sortRows=rs=>mode==='day'?rs.slice().sort((a,b)=>a.dayOrder-b.dayOrder):rs;
@@ -1125,7 +1133,7 @@ function render(){
     if(!rs.length)return;
     const tb=document.createElement('tbody');tb.className='g';
     const hr=document.createElement('tr');hr.className='gh';
-    const td=document.createElement('td');td.colSpan=NOTES?7:6;
+    const td=document.createElement('td');td.colSpan=NOTES?6:5;
     td.appendChild(document.createTextNode(g));
     const n=document.createElement('span');n.className='n';
     const p1=rs.filter(r=>st(r.id).p1).length,p2=rs.filter(r=>st(r.id).p2).length;
@@ -1156,7 +1164,7 @@ function row(r){
   c1.append(t,m);tr.appendChild(c1);
   const c2=document.createElement('td');c2.className='c hide-sm';
   c2.innerHTML='<i class="dot disc '+r.disc+'"></i>';tr.appendChild(c2);
-  [['p1',1],['p2',1],['anki',1]].forEach(([k])=>{
+  [['p1',1],['p2',1]].forEach(([k])=>{
     const td=document.createElement('td');td.className='c';
     const on=!!s[k]||(k==='p2'&&!r.bank&&!!s.p1);
     td.innerHTML=s[k]?'<span class="yes">✓</span>'
@@ -1172,6 +1180,25 @@ function row(r){
     c7.textContent=s.note||'';c7.style.fontSize='11.5px';c7.style.color='var(--ink3)';
     tr.appendChild(c7);}
   return tr;
+}
+
+/* the CAT column is a coloured dot; this says what each colour means, listing
+   only the disciplines that actually appear in the table */
+function key(){
+  const seen=[];
+  ROWS.forEach(r=>{if(!seen.some(x=>x.disc===r.disc))seen.push({disc:r.disc,name:r.discName});});
+  seen.sort((a,b)=>a.name.localeCompare(b.name));
+  const box=$('#key');box.innerHTML='';
+  const lab=document.createElement('span');lab.className='keylab';
+  lab.textContent='Category';box.appendChild(lab);
+  seen.forEach(x=>{
+    const c=document.createElement('span');c.className='keyc';
+    c.innerHTML='<i class="dot disc '+x.disc+'"></i>';
+    c.appendChild(document.createTextNode(x.name));
+    const b=document.createElement('b');b.textContent=ROWS.filter(r=>r.disc===x.disc).length;
+    c.appendChild(b);
+    box.appendChild(c);
+  });
 }
 
 function stamp(){
@@ -1197,7 +1224,7 @@ document.querySelectorAll('.mb').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.mb').forEach(x=>x.classList.toggle('on',x.dataset.m===mode));
   render();
 });
-render(); schedule(); pull(); pullPace();
+render(); key(); schedule(); pull(); pullPace();
 setInterval(pull,30000);
 setInterval(pullPace,60000);      /* live enough to watch, light enough to ignore */
 setInterval(stamp,10000);
