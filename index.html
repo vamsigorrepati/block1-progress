@@ -798,12 +798,12 @@ const Pace = (() => {
       if (d.p2) { doneMin += cost(i, o).q; doneCount++; }
     });
 
-    /* Where the plan says you are: walk the timetable until its cumulative work
-       matches what you have finished, and read off the CLOCK there. Breaks count
-       in that walk, because they are part of when a block is due to end. The
-       answer is a distance in time — "you are here at 2:10 pm, the plan has you
-       here at 3:05 pm, so you are 55m ahead" — not a pile of work minutes, which
-       is what it used to report and which never matched the timetable. */
+    /* Where you are on the timetable: walk it until its cumulative WORK equals
+       the work you have finished, and read off the clock there. It has to be
+       cumulative work rather than "the last block I ticked" — you do the day in
+       your own order, so a ticked block sitting late in the plan would otherwise
+       credit you for reaching a time you have not reached. Breaks count in the
+       walk because they are part of when a block is due to end. */
     let acc = 0, atClock = p.start;
     for (let k = 0; k < p.blocks.length; k++) {
       const b = p.blocks[k];
@@ -813,7 +813,7 @@ const Pace = (() => {
       acc = doneMin;
       break;
     }
-    if (doneMin > acc) atClock = p.end;                 // finished more than the day holds
+    if (doneMin > acc) atClock = p.end;                 // more done than the day holds
 
     /* Being part-way through the block the plan puts you in is not lateness —
        it is doing the work. So lateness is measured to the START of the current
