@@ -287,6 +287,7 @@ html,body{height:auto;overflow:visible}
 .ttr{display:flex;align-items:baseline;gap:10px;padding:5px 2px;border-bottom:1px solid var(--line);
  font-size:12.5px}
 .ttr.past{opacity:.42}
+.ttr.fin .ttt{text-decoration:line-through;color:var(--ink3)}
 .ttr.on{background:var(--accent-soft);border-radius:7px;padding-left:7px;padding-right:7px}
 .ttr.break{font-size:11px;color:var(--ink3)}
 .ttw{flex:0 0 96px;font-variant-numeric:tabular-nums;font-weight:650;color:var(--ink2)}
@@ -531,18 +532,24 @@ const Pace = (() => {
   }
 
   /* ---------- cost model ---------- */
-  /* Cost is what is LEFT, pass by pass. A lecture whose sheet is read but whose
-     bank is unanswered owes its questions and nothing else — the planner used to
-     hold the whole lecture until both were ticked, which is why ticking "read"
-     re-laid the day around a block already finished. */
+  /* The full cost of each pass, whatever is already ticked. The day's timetable
+     is the plan FOR THAT DAY from the start time — it does not compact as work
+     is finished and it does not re-anchor to the current time; finished blocks
+     are marked done in place, so the times you looked at this morning are the
+     times you look at this afternoon. */
   function cost(it, o) {
-    const st = o.state ? o.state(it) : null;
     const w = it.words || 0;
-    const read = (st && st.p1) || !w ? 0
-               : (w * (o.skim.has(it.id) ? SKIM_FRACTION : 1)) / o.wpm;
-    const q = (st && st.p2) || (o.noQ && o.noQ.has(it.id)) ? 0
+    const read = w ? (w * (o.skim.has(it.id) ? SKIM_FRACTION : 1)) / o.wpm : 0;
+    const q = (o.noQ && o.noQ.has(it.id)) ? 0
             : (it.qs || 0) * (o.perQ / 60000);   // board vignettes only
     return {read, q, total: read + q};
+  }
+  /* what is still owed, used for the counts and the verdict — never for layout */
+  function owed(it, o) {
+    const st = o.state ? o.state(it) : null;
+    const c = cost(it, o);
+    return {read: st && st.p1 ? 0 : c.read, q: st && st.p2 ? 0 : c.q,
+            total: (st && st.p1 ? 0 : c.read) + (st && st.p2 ? 0 : c.q)};
   }
   const sum = (list, o, f) => list.reduce((n, i) => n + f(cost(i, o)), 0);
 
@@ -593,11 +600,7 @@ const Pace = (() => {
       noQ: new Set(opts.noQ || []),        // banks you have opted out of today
       state: opts.state,                   // per-pass progress
     };
-    /* The day's start is where the day BEGAN, not where the remaining work
-       begins. Once anything is ticked the rest has to be laid out from now —
-       otherwise finishing a lecture at 12:40 re-times the whole afternoon from
-       11:00 and every block reads as already overdue. */
-    const start = opts.rollForward ? Math.max(opts.start, nowMin()) : opts.start;
+    const start = opts.start;
     /* A small-hours finish means tomorrow (11:00 -> 01:30 is a real study
        night). Handled HERE so every caller gets it — the shared page calls
        plan() directly and was producing an empty day. */
@@ -615,9 +618,11 @@ const Pace = (() => {
 
     /* Only unfinished work is scheduled, and the CS evening block stays last
        however the rest is chunked. */
-    const pending = opts.items.filter(i => cost(i, o).total > 0);
-    const sci = pending.filter(i => !i.cseve);
-    const cs = pending.filter(i => i.cseve);
+    /* every lecture of the day, done or not — the timetable is the day */
+    const all = opts.items.filter(i => cost(i, o).total > 0);
+    const pending = all.filter(i => owed(i, o).total > 0);
+    const sci = all.filter(i => !i.cseve);
+    const cs = all.filter(i => i.cseve);
 
     const f = fitList(sci.concat(cs), avail, o);
     const keptSci = f.work.filter(i => !i.cseve), keptCs = f.work.filter(i => i.cseve);
@@ -665,7 +670,11 @@ const Pace = (() => {
         else { head.min -= want; want = 0; r.cut = true; break; }
         r.cut = false;
       }
-      blocks.push({kind: r.kind, items, start: t, min: take, cont});
+      const st = o.state;
+      blocks.push({kind: r.kind, items, start: t, min: take, cont,
+                   /* a block whose lectures have that pass ticked */
+                   done: !!st && items.length > 0 &&
+                         items.every(i => (r.kind === 'read' ? st(i).p1 : st(i).p2))});
       t += take; since += take; r.left -= take;
       if (r.left < 0.01) qi++;
     }
@@ -678,10 +687,11 @@ const Pace = (() => {
       dropped: f.dropped, over: f.over, noQ: o.noQ,
       fits: t <= finish + 1,
       totals: {
-        pending: pending.length,
+        pending: pending.length, all: all.length,
         words: pending.reduce((n, i) => n + (i.words || 0), 0),
         qs: pending.reduce((n, i) => n + (i.qs || 0), 0),
         fullMin: full, planMin: t - start, perQ: o.perQ, wpm: o.wpm,
+        owedMin: sum(pending, o, c => 0) + all.reduce((n, i) => n + owed(i, o).total, 0),
       },
     };
   }
@@ -826,7 +836,6 @@ const Pace = (() => {
                       skim: S.skim || [], noQ: S.noQ || [],
                       /* only for the day being lived: a plan for Tuesday keeps
                          its own shape */
-                      rollForward: S.mode !== 'back' && isToday(day),
                       state: isDone.state, isDone: isDone.done});
       /* every item of the day, finished or not — `now()` needs the finished
          ones to weigh what you have actually got through */
@@ -981,7 +990,7 @@ const Pace = (() => {
       const tab = el('div', 'pc-tt');
       p.blocks.forEach(b => {
         const row = el('div', 'pc-row ' + b.kind + (n.block === b ? ' on' : '')
-                              + (b.end <= n.t ? ' past' : ''));
+                              + (b.end <= n.t ? ' past' : '') + (b.done ? ' fin' : ''));
         row.appendChild(el('span', 'pc-when', t12(b.start) + '–' + t12(b.end)));
         const body = el('span', 'pc-what');
         if (b.kind === 'break') body.appendChild(el('i', null, 'break'));
@@ -994,6 +1003,7 @@ const Pace = (() => {
           });
           /* a sheet or bank too long for one sitting continues after the break */
           if (b.cont) body.appendChild(el('i', 'pc-cont', 'cont.'));
+          if (b.done) body.appendChild(el('i', 'pc-done', '✓ done'));
         }
         row.appendChild(body);
         row.appendChild(el('span', 'pc-min', dur(b.min)));
@@ -1091,7 +1101,7 @@ function schedule(){
                                 noQ:PACE.noQ||[],state:pass,isDone:done});
       const startMin=(PACE.days[todayDay]||{}).start!=null
         ? (PACE.days[todayDay]||{}).start : back.start;
-      const p=Pace.plan({items,start:startMin,rollForward:true,state:pass,
+      const p=Pace.plan({items,start:startMin,state:pass,
                          finish:fin,wpm:PACE.wpm||230,
                          perQ:PACE.perQ,        /* his pace, not this browser's */
                          noQ:PACE.noQ||[],isDone:done});
@@ -1128,13 +1138,14 @@ function schedule(){
       const tt=document.createElement('div');tt.className='tt';
       p.blocks.forEach(bl=>{
         const r=document.createElement('div');
-        r.className='ttr '+bl.kind+(bl===b?' on':'')+(bl.end<=today?' past':'');
+        r.className='ttr '+bl.kind+(bl===b?' on':'')+(bl.end<=today?' past':'')
+                    +(bl.done?' fin':'');
         const w=document.createElement('span');w.className='ttw';
         w.textContent=Pace.t12(bl.start)+'–'+Pace.t12(bl.end);
         const t=document.createElement('span');t.className='ttt';
         t.textContent=bl.kind==='break'?'break'
           :(bl.kind==='read'?'Read ':'Questions ')+bl.items.map(i=>i.title).join(', ')
-           +(bl.cont?' (cont.)':'');
+           +(bl.cont?' (cont.)':'')+(bl.done?'  ✓':'');
         const m=document.createElement('span');m.className='ttm';
         m.textContent=Pace.dur(bl.min);
         r.append(w,t,m);tt.appendChild(r);
