@@ -1031,23 +1031,26 @@ function schedule(){
   const box=$('#sched');box.innerHTML='';
   const today=Pace.nowMin(), stamp=new Date().toString().slice(4,10).replace(/ 0/,' ');
   const todayDay=DAYS.find(d=>d.indexOf(stamp)>=0);
+  /* raw values — a formatted string fed back into the parser produced an empty
+     plan, which is exactly what happened when this first switched to am/pm */
   const win=d=>{
     const t=(PACE.days||{})[d]||{};
-    const st=t.start!=null?Pace.t12(t.start):null;
-    const fi=t.finish?Pace.t12(Pace.parseHHMM(t.finish)):null;
-    return st||fi?{st,fi}:null;
+    const st=t.start!=null?t.start:null;          // minutes since midnight
+    const fi=t.finish||null;                      // "HH:MM", machine-readable
+    return st!=null||fi?{st,fi}:null;
   };
+  const show=t=>t==null?'—':Pace.t12(typeof t==='number'?t:Pace.parseHHMM(t));
   const hd=document.createElement('div');hd.className='hd';
   if(todayDay){
     const w=win(todayDay);
     hd.innerHTML='<b></b><span class="win"></span><span class="vd"></span>';
     hd.querySelector('b').textContent='Today — '+todayDay.split(' —')[0];
     hd.querySelector('.win').textContent=w
-      ? (w.st ? w.st+' → '+(w.fi||'—')
-              : 'finishing by '+(w.fi||'—'))
+      ? (w.st!=null ? show(w.st)+' → '+show(w.fi)
+                    : 'finishing by '+show(w.fi))
       : 'no hours set';
     box.appendChild(hd);
-    if(w&&(w.st||w.fi)){
+    if(w&&(w.st!=null||w.fi)){
       /* lay his day out exactly as his own pacer would */
       const items=ROWS.filter(r=>r.dayGroup===todayDay)
         .map(r=>({id:r.id,title:r.title,day:r.dayGroup,order:r.dayOrder,
@@ -1075,7 +1078,7 @@ function schedule(){
         n.state==='behind'?'var(--corr)':n.state==='pre'?'var(--ink3)':'var(--ok)';
       const now=document.createElement('div');now.className='now';
       const b=n.block;
-      if(!w.st){
+      if(w.st==null){
         const hint=document.createElement('div');hint.className='now';
         hint.innerHTML='<i>no start time set — this is the schedule that fits, '
           +'beginning '+Pace.t12(p.start)+'</i>';
@@ -1134,7 +1137,8 @@ function schedule(){
   DAYS.filter(d=>d!=='Not on the plan').forEach(d=>{
     const w=win(d), c=document.createElement('span');
     c.className='dayc'+(d===todayDay?' today':'')+(w?'':' unset');
-    c.innerHTML='<b>'+d.split(' —')[0]+'</b> '+(w?((w.st||'—')+'–'+(w.fi||'—')):'not set');
+    c.innerHTML='<b>'+d.split(' —')[0]+'</b> '
+      +(w?(show(w.st)+'–'+show(w.fi)):'not set');
     row.appendChild(c);
   });
   box.appendChild(row);
