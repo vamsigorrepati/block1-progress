@@ -521,7 +521,12 @@ const Pace = (() => {
   }
 
   /* ---------- ticks: the pass tracker is the single source of "done" ---------- */
+  /* Disk beats this tab's localStorage: a page left open on one origin (or a
+     second browser) otherwise keeps crediting the ticks it knew about at load
+     while its clock runs on, and reports an invented and ever-growing deficit. */
+  let _ticks = null;
   function ticks() {
+    if (_ticks) return _ticks;
     try {
       const d = JSON.parse(localStorage.getItem('bs-tracker') || 'null');
       return (d && d.rows) || {};
@@ -529,7 +534,10 @@ const Pace = (() => {
   }
   function refreshTicks(cb) {
     fetch('api/tracker').then(r => r.ok ? r.json() : null).then(d => {
-      if (d && d.rows) cb && cb(d.rows);
+      if (!d || !d.rows) return;
+      const was = JSON.stringify(_ticks);
+      _ticks = d.rows;
+      if (was !== JSON.stringify(_ticks)) cb && cb(d.rows);
     }).catch(() => {});
   }
 
@@ -1023,8 +1031,10 @@ const Pace = (() => {
     }
 
     render();
-    /* the clock moves on its own; ticks and the median arrive from disk */
-    setInterval(render, 60000);
+    /* The clock moves on its own — and so do the ticks, which may be made in
+       another tab or on another device. Re-read them every minute, not once at
+       load, or the verdict drifts away from the truth all day. */
+    setInterval(() => { refreshTicks(); render(); }, 60000);
     refreshTicks(() => render());
     refreshPerQ(() => render());
     return {render};
