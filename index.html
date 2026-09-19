@@ -815,7 +815,13 @@ const Pace = (() => {
     }
     if (doneMin > acc) atClock = p.end;                 // finished more than the day holds
 
-    const delta = atClock - t;                    // + ahead of the clock, - behind
+    /* Being part-way through the block the plan puts you in is not lateness —
+       it is doing the work. So lateness is measured to the START of the current
+       block, never to the current moment: you only fall behind once a block's
+       window closes with the work still unticked. Ahead is still measured to
+       now, because finished work really is banked time. */
+    const ref = block ? Math.min(t, block.start) : t;
+    const delta = atClock >= t ? atClock - t : -Math.max(0, ref - atClock);
     const elapsed = Math.max(1, t - p.start);
     const remaining = Math.max(0, p.totals.planMin - doneMin);
     /* Once there is real throughput to measure, trust it over the model. */
@@ -838,7 +844,8 @@ const Pace = (() => {
              : Math.abs(delta) < 8 ? 'on track'
              /* say it in clock terms: the plan had this done by <time> */
              : delta > 0 ? `${dur(delta)} ahead — plan has you here at ${t12(atClock)}`
-                         : `${dur(-delta)} behind — this was due by ${t12(atClock)}`,
+                         : `${dur(-delta)} behind — plan is at ${t12(ref)}, `
+                           + `your ticks reach ${t12(atClock)}`,
       state: t < p.start ? 'pre'
            : ended ? (remaining > 2 ? 'behind' : 'ok')
            : Math.abs(delta) < 8 ? 'ok' : delta > 0 ? 'ahead' : 'behind',
