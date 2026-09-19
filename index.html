@@ -274,6 +274,21 @@ html,body{height:auto;overflow:visible}
 .dayc.today{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .dayc.today b{color:var(--accent)}
 .dayc.unset{border-style:dashed}
+/* the day's blocks */
+.tt{margin-top:10px;border-top:1px solid var(--line)}
+.ttr{display:flex;align-items:baseline;gap:10px;padding:5px 2px;border-bottom:1px solid var(--line);
+ font-size:12.5px}
+.ttr.past{opacity:.42}
+.ttr.on{background:var(--accent-soft);border-radius:7px;padding-left:7px;padding-right:7px}
+.ttr.break{font-size:11px;color:var(--ink3)}
+.ttw{flex:0 0 96px;font-variant-numeric:tabular-nums;font-weight:650;color:var(--ink2)}
+.ttr.on .ttw{color:var(--accent)}
+.ttt{flex:1;min-width:0}
+.ttm{flex:0 0 46px;text-align:right;color:var(--ink3);font-variant-numeric:tabular-nums;
+ font-size:11.5px}
+.ttnote{margin-top:6px;font-size:11px;color:var(--exam)}
+.ttnote.bad{color:var(--corr)}
+@media(max-width:760px){.ttw{flex-basis:84px}.ttm{display:none}}
 main{max-width:1000px;margin:0 auto;padding:30px 20px 70px}
 h1{margin:0;font-size:24px;letter-spacing:-.02em}
 .sub{margin:5px 0 0;font-size:13px;color:var(--ink2)}
@@ -1026,6 +1041,36 @@ function schedule(){
           +'</b> <i>until '+Pace.hhmm(b.end)+'</i>')
         :('<i>'+(today<p.start?'starts '+Pace.hhmm(p.start):'plan ended '+Pace.hhmm(p.end))+'</i>');
       box.appendChild(now);
+
+      /* the day itself, block by block — this is the schedule, not a summary */
+      const tt=document.createElement('div');tt.className='tt';
+      p.blocks.forEach(bl=>{
+        const r=document.createElement('div');
+        r.className='ttr '+bl.kind+(bl===b?' on':'')+(bl.end<=today?' past':'');
+        const w=document.createElement('span');w.className='ttw';
+        w.textContent=Pace.hhmm(bl.start)+'–'+Pace.hhmm(bl.end);
+        const t=document.createElement('span');t.className='ttt';
+        t.textContent=bl.kind==='break'?'break'
+          :(bl.kind==='read'?'Read ':'Questions ')+bl.items.map(i=>i.title).join(', ')
+           +(bl.cont?' (cont.)':'');
+        const m=document.createElement('span');m.className='ttm';
+        m.textContent=Pace.dur(bl.min);
+        r.append(w,t,m);tt.appendChild(r);
+      });
+      if(p.skimmed.length){
+        const note=document.createElement('div');note.className='ttnote';
+        note.textContent='skimming '+p.skimmed.length+': '
+          +p.skimmed.slice(0,3).map(i=>i.title).join(' · ')
+          +(p.skimmed.length>3?' +'+(p.skimmed.length-3)+' more':'');
+        tt.appendChild(note);
+      }
+      if(p.dropped.length){
+        const note=document.createElement('div');note.className='ttnote bad';
+        note.textContent="won't reach "+p.dropped.length+': '
+          +p.dropped.slice(0,3).map(i=>i.title).join(' · ');
+        tt.appendChild(note);
+      }
+      box.appendChild(tt);
     }
   }else{
     hd.innerHTML='<b>Not a study day</b><span class="win">the plan runs Sat 19 – Wed 23 Sep</span>';
