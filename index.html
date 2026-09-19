@@ -738,13 +738,14 @@ const Pace = (() => {
     const block = p.blocks.find(b => t >= b.start && t < b.end) || null;
     const next = p.blocks.find(b => b.start > t) || null;
 
-    /* Planned work minutes that should be behind you by now — breaks excluded,
-       because a break is not progress. */
+    /* Planned work minutes that should be behind you by now: only blocks whose
+       window has fully passed. Charging for time inside the block in progress
+       made the verdict a sawtooth — it slid up to a whole block "behind" while
+       you were doing that very block, because credit can only arrive when the
+       block is ticked. Breaks never count; a break is not progress. */
     let planned = 0;
     p.blocks.forEach(b => {
-      if (b.kind === 'break') return;
-      if (t >= b.end) planned += b.min;
-      else if (t > b.start) planned += t - b.start;
+      if (b.kind !== 'break' && t >= b.end) planned += b.min;
     });
 
     /* Actual: the model cost of every pass finished today, counted against the
