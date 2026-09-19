@@ -3,6 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Block 1 revision — progress</title>
+<script>/* the viewer's own theme choice, remembered in their browser */
+(function(){var t;try{t=localStorage.getItem('b1v-theme');}catch(e){}
+ if(!t||['light','dark','sepia'].indexOf(t)<0)
+   t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+ document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
 :root,:root[data-theme="light"]{--bg:#f6f7f9;--panel:#fff;--ink:#12151a;--ink2:#4a5260;--ink3:#79818f;--line:#e2e6ec;
  --accent:#2f6f8f;--accent-soft:#e8f1f6;--exam:#9a6a00;--exam-bg:#fff6e0;--exam-line:#f0c964;
@@ -247,6 +252,28 @@ aside .filt .fl{display:none}
 }
 
 html,body{height:auto;overflow:visible}
+.top{display:flex;align-items:flex-start;gap:12px}
+.top .grow{flex:1}
+#theme{flex:0 0 auto;width:30px;height:30px;font:inherit;font-size:14px;cursor:pointer;
+ background:var(--panel);color:var(--ink2);border:1px solid var(--line);border-radius:8px}
+#theme:hover{border-color:var(--accent);color:var(--accent)}
+/* today's window, and the week's presets */
+.sched{margin:16px 0 4px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);
+ border-radius:12px;box-shadow:var(--shadow)}
+.sched .hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sched .hd b{font-size:15px;font-weight:700}
+.sched .hd .win{font-size:13px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.sched .hd .vd{margin-left:auto;font-size:12px;font-weight:700}
+.sched .now{margin-top:6px;font-size:13px;color:var(--ink)}
+.sched .now i{font-style:normal;color:var(--ink3)}
+.days{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;
+ border-top:1px solid var(--line)}
+.dayc{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);
+ color:var(--ink3);font-variant-numeric:tabular-nums}
+.dayc b{color:var(--ink2);font-weight:650}
+.dayc.today{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.dayc.today b{color:var(--accent)}
+.dayc.unset{border-style:dashed}
 main{max-width:1000px;margin:0 auto;padding:30px 20px 70px}
 h1{margin:0;font-size:24px;letter-spacing:-.02em}
 .sub{margin:5px 0 0;font-size:13px;color:var(--ink2)}
@@ -292,9 +319,13 @@ footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
 @media(max-width:760px){.hide-sm{display:none}main{padding:18px 12px 50px}}
 </style></head><body>
 <main>
+  <div class="top"><div class="grow">
   <h1>Block 1 revision<span class="ro">read only</span></h1>
   <p class="sub">Vamsi's pass tracker for MUSC Foundations Block 1 — which lectures he has read the
      review sheet for and answered the question bank for. It syncs from his machine while he studies and refreshes here every 30 seconds.</p>
+  </div><button id="theme" title="Change theme"></button></div>
+
+  <section class="sched" id="sched"></section>
 
   <div class="mets">
     <div class="met" id="m-p1"><b>Sheets read</b><div class="v"></div><div class="trk"><span></span></div></div>
@@ -320,14 +351,695 @@ footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
   <footer>Live view of a local file — when the page says it is offline, the machine serving it is
     asleep. Nothing here can be edited.</footer>
 </main>
+<script>/* pace.js — the study-day pacer.
+ *
+ * Given a finish time, it lays the day's remaining lectures out as clock blocks
+ * — read these three sheets, then answer their three banks, then a break — and
+ * tells you whether the wall clock is ahead of you.
+ *
+ *   Pace.plan(opts)        -> {blocks, skimmed, dropped, fits, totals}
+ *   Pace.now(plan, done)   -> {block, next, deltaMin, verdict, projFinish}
+ *   Pace.mount(el, opts)   -> renders (mode 'full' or 'compact') and re-renders
+ *
+ * Shape of the world
+ *   items  [{id, title, day, order, words, qs, cseve}]   from desk.html's `L`
+ *   done   id -> {p1, p2}                                from the pass tracker
+ *
+ * Two deliberate non-features:
+ *   - No stopwatch. There is no Start, no Pause, no per-lecture logging. The
+ *     inputs are the wall clock and the tracker's ticks, nothing else.
+ *   - No dependency on practice/dashboard.js. `Dash` would give a ready-made
+ *     per-question median, but it needs practice/manifest.js (361 KB) to load
+ *     first. The median is three lines, so this reads the attempt log directly
+ *     and borrows only dashboard.js's conventions: the 04:00 study-day
+ *     rollover, and its 75 s cold-start seed when there is no history.
+ *
+ * Follows the practice/*.js house style: one IIFE, one global, no modules, no
+ * build step, works when the page is opened straight off disk.
+ */
+const Pace = (() => {
+
+  const K = 'bs-pace';                    // settings only; ticks live in bs-tracker
+  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4};
+  const MAX_RUN = 55;                     // minutes of work before a break is due
+  const OVERSHOOT = 10;                   // ...unless the block only just exceeds it
+  const SEED_Q_MS = 75000;                // practice/dashboard.js CONST.SEED_MS
+  const SEED_D_MS = 20000;                // a drill is a recall item, not a vignette
+  const SKIM_FRACTION = 0.35;             // tables + "Easy to confuse" + traps
+  const ROLLOVER_HOUR = 4;                // a study day runs 04:00 -> 04:00
+
+  /* ---------- time helpers: everything internal is minutes-since-midnight ---- */
+  const pad = n => String(n).padStart(2, '0');
+  const hhmm = m => pad(Math.floor(((m % 1440) + 1440) % 1440 / 60)) + ':' + pad(Math.round(m) % 60);
+  const parseHHMM = s => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec((s || '').trim());
+    return m ? (+m[1]) * 60 + (+m[2]) : null;
+  };
+  const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  const dur = m => {
+    m = Math.max(0, Math.round(m));
+    return m >= 60 ? `${Math.floor(m / 60)}h ${pad(m % 60)}m` : `${m}m`;
+  };
+  /* Which study day a moment belongs to — 01:00 still belongs to yesterday. */
+  const studyDate = (d = new Date()) => {
+    const x = new Date(d.getTime() - ROLLOVER_HOUR * 3600000);
+    return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+  };
+
+  /* ---------- settings ---------- */
+  /* Start and finish are PER DAY — Saturday can run 08:30-19:00 and Tuesday
+     11:00-22:00 — and live in `days[<day label>]`. Everything else (reading
+     speed, mode, which banks are skipped) is one setting for the week. */
+  function settings() {
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(K) || '{}'); } catch (e) {}
+    s.days = s.days || {};
+    return Object.assign({}, DEF, s);
+  }
+  function dayTimes(s, day) {
+    return Object.assign({finish: s.finish || DEF.finish}, (s.days || {})[day] || {});
+  }
+  function setDayTimes(day, patch) {
+    const s = settings();
+    s.days[day] = Object.assign({}, s.days[day] || {}, patch);
+    return setSettings({days: s.days});
+  }
+  let _sync = null;
+  function setSettings(patch) {
+    const s = Object.assign(settings(), patch, {date: studyDate()});
+    try { localStorage.setItem(K, JSON.stringify(s)); } catch (e) {}
+    /* mirror to the server so `_publish.py` can put the day's window on the
+       shared page; debounced, and a failure never matters locally */
+    clearTimeout(_sync);
+    _sync = setTimeout(() => {
+      fetch('api/pace', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                         body: JSON.stringify(s)}).catch(() => {});
+    }, 600);
+    return s;
+  }
+
+  /* ---------- per-question pace, from his own answers ---------- */
+  /* Mastery drills are excluded by `mode`, which is enough on its own — the
+     manifest would be needed only to classify by set, and the log already says
+     which runner produced each attempt. */
+  let _perQ = null, _perD = null;
+  const medianOf = (att, mastery, seed) => {
+    const ms = att.filter(a => a && (a.mode === 'mastery') === mastery
+                            && a.ms > 1000 && a.ms < 600000)
+                  .map(a => a.ms).sort((a, b) => a - b);
+    return ms.length >= 8 ? ms[Math.floor(ms.length / 2)] : seed;
+  };
+  function attempts() {
+    try {
+      const d = JSON.parse(localStorage.getItem('bs-practice-v1') || 'null');
+      return (d && d.attempts) || [];
+    } catch (e) { return []; }
+  }
+  function perQms() {
+    if (_perQ === null) _perQ = medianOf(attempts(), false, SEED_Q_MS);
+    return _perQ;
+  }
+  /* Mastery drills are a different animal — his median is about a quarter of a
+     vignette's, so pricing them at the vignette rate would triple the day. */
+  function perDms() {
+    if (_perD === null) _perD = medianOf(attempts(), true, SEED_D_MS);
+    return _perD;
+  }
+  /* The disk copy is the fuller one when the page is served; refresh in the
+     background and let the caller re-render if the number actually moved. */
+  function refreshPerQ(cb) {
+    fetch('api/progress').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d || !d.attempts) return;
+      const q = medianOf(d.attempts, false, SEED_Q_MS), m = medianOf(d.attempts, true, SEED_D_MS);
+      if (q !== _perQ || m !== _perD) { _perQ = q; _perD = m; cb && cb(q); }
+    }).catch(() => {});
+  }
+
+  /* ---------- ticks: the pass tracker is the single source of "done" ---------- */
+  function ticks() {
+    try {
+      const d = JSON.parse(localStorage.getItem('bs-tracker') || 'null');
+      return (d && d.rows) || {};
+    } catch (e) { return {}; }
+  }
+  function refreshTicks(cb) {
+    fetch('api/tracker').then(r => r.ok ? r.json() : null).then(d => {
+      if (d && d.rows) cb && cb(d.rows);
+    }).catch(() => {});
+  }
+
+  /* ---------- cost model ---------- */
+  function cost(it, o) {
+    const w = it.words || 0;
+    const read = w ? (w * (o.skim.has(it.id) ? SKIM_FRACTION : 1)) / o.wpm : 0;
+    const q = (o.noQ && o.noQ.has(it.id)) ? 0
+            : (it.qs || 0) * (o.perQ / 60000);   // board vignettes only
+    return {read, q, total: read + q};
+  }
+  const sum = (list, o, f) => list.reduce((n, i) => n + f(cost(i, o)), 0);
+
+  /* Chunk the day into clusters of `size`, keeping plan order, and never
+     leaving a cluster of one: read three or four sheets, then their banks. */
+  function clusters(list, size) {
+    const out = [];
+    for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+    if (out.length > 1 && out[out.length - 1].length === 1) {
+      out[out.length - 2].push(out.pop()[0]);       // 4+1 -> 5 reads better than a lone tail
+    }
+    return out;
+  }
+
+  /* ---------- the fitter ---------- */
+  /* Escalation, in order: skim the biggest sheet, then the next biggest, and
+     only when everything is skimmed does it start dropping from the tail. */
+  function fitList(list, avail, o) {
+    const skim = new Set(o.skim);
+    const dropped = [];
+    let work = list.slice();
+    const totalWith = (l, sk) => {
+      const oo = Object.assign({}, o, {skim: sk});
+      const work = sum(l, oo, c => c.total);
+      /* breaks are a function of WORK, not of how the work is grouped: one per
+         MAX_RUN minutes, which is what "10 minutes an hour" actually means */
+      return work + Math.floor(work / MAX_RUN) * o.breakMin;
+    };
+    for (let guard = 0; guard < 400; guard++) {
+      if (totalWith(work, skim) <= avail || !work.length) break;
+      const cand = work.filter(i => !skim.has(i.id) && i.words > 0)
+                       .sort((a, b) => b.words - a.words)[0];
+      if (cand) { skim.add(cand.id); continue; }
+      if (work.length <= 1) break;                   // can't shrink further
+      dropped.unshift(work.pop());
+    }
+    return {work, skim, dropped, over: totalWith(work, skim) > avail};
+  }
+
+  /* ---------- plan ---------- */
+  function plan(opts) {
+    const o = {
+      wpm: +opts.wpm || DEF.wpm,
+      perQ: opts.perQ || perQms(),
+      breakMin: opts.breakPerHour == null ? DEF.breakPerHour : +opts.breakPerHour,
+      cluster: opts.cluster || DEF.cluster,
+      skim: new Set(opts.skim || []),
+      noQ: new Set(opts.noQ || []),        // banks you have opted out of today
+    };
+    const start = opts.start, finish = opts.finish;
+    const avail = finish - start;
+    /* A finish time that has already gone by is a setting to fix, not a day to
+       cram — returning an empty plan keeps the panel honest about that. */
+    if (avail <= 5) {
+      return {blocks: [], start, finish, end: start, avail, noTime: true,
+              skimmed: [], dropped: [], over: true, fits: false,
+              totals: {pending: 0, words: 0, qs: 0, fullMin: 0, planMin: 0,
+                       perQ: o.perQ, wpm: o.wpm}};
+    }
+
+    /* Only unfinished work is scheduled, and the CS evening block stays last
+       however the rest is chunked. */
+    const pending = opts.items.filter(i => !opts.isDone(i)).filter(i => cost(i, o).total > 0);
+    const sci = pending.filter(i => !i.cseve);
+    const cs = pending.filter(i => i.cseve);
+
+    const f = fitList(sci.concat(cs), avail, o);
+    const keptSci = f.work.filter(i => !i.cseve), keptCs = f.work.filter(i => i.cseve);
+    const oo = Object.assign({}, o, {skim: f.skim});
+
+    const groups = clusters(keptSci, o.cluster).concat(keptCs.length ? [keptCs] : []);
+    /* ONE LECTURE PER BLOCK. The cluster still decides the order — read these
+       three sheets, then answer those three banks — but each sheet and each
+       bank is its own block, because that is how the work is actually done.
+       A sheet longer than MAX_RUN is split across a break and marked (cont.). */
+    const runs = [];
+    groups.forEach(g => {
+      g.forEach(i => {
+        const m = cost(i, oo).read;
+        if (m > 0) runs.push({kind: 'read', queue: [{item: i, min: m}], left: m});
+      });
+      g.forEach(i => {
+        const m = cost(i, oo).q;
+        if (m > 0) runs.push({kind: 'q', queue: [{item: i, min: m}], left: m});
+      });
+    });
+
+    /* Lay them on the clock. Nothing runs more than MAX_RUN without a break, so
+       a four-hour reading stretch gets cut into workable pieces instead of
+       being scheduled as one impossible block. */
+    const blocks = [];
+    let t = start, since = 0, qi = 0;
+    while (qi < runs.length) {
+      const r = runs[qi];
+      const room = MAX_RUN - since;
+      if (room < 8) {
+        blocks.push({kind: 'break', items: [], start: t, min: o.breakMin});
+        t += o.breakMin; since = 0;
+        continue;
+      }
+      const take = r.left <= room + OVERSHOOT ? r.left : room;
+      /* consume `take` minutes off the head of the queue; a lecture the block
+         only partly covers stays at the head for the next block */
+      const items = [];
+      let want = take, cont = !!r.cut;
+      while (want > 0.01 && r.queue.length) {
+        const head = r.queue[0];
+        items.push(head.item);
+        if (head.min <= want + 0.01) { want -= head.min; r.queue.shift(); }
+        else { head.min -= want; want = 0; r.cut = true; break; }
+        r.cut = false;
+      }
+      blocks.push({kind: r.kind, items, start: t, min: take, cont});
+      t += take; since += take; r.left -= take;
+      if (r.left < 0.01) qi++;
+    }
+    blocks.forEach(b => { b.end = b.start + b.min; });
+
+    const full = sum(pending, Object.assign({}, o, {skim: new Set()}), c => c.total);
+    return {
+      blocks, start, finish, end: t, avail,
+      skimmed: f.work.filter(i => f.skim.has(i.id)),
+      dropped: f.dropped, over: f.over, noQ: o.noQ,
+      fits: t <= finish + 1,
+      totals: {
+        pending: pending.length,
+        words: pending.reduce((n, i) => n + (i.words || 0), 0),
+        qs: pending.reduce((n, i) => n + (i.qs || 0), 0),
+        fullMin: full, planMin: t - start, perQ: o.perQ, wpm: o.wpm,
+      },
+    };
+  }
+
+  /* ---------- backwards: the start time the day demands ----------
+     No skimming and nothing dropped — the question is "when must I begin to
+     get through all of it", so the answer is allowed to be uncomfortable. */
+  function backplan(opts) {
+    const o = {
+      wpm: +opts.wpm || DEF.wpm, perQ: opts.perQ || perQms(),
+      breakMin: opts.breakPerHour == null ? DEF.breakPerHour : +opts.breakPerHour,
+      cluster: opts.cluster || DEF.cluster, skim: new Set(),
+      noQ: new Set(opts.noQ || []),
+    };
+    const pending = opts.items.filter(i => !opts.isDone(i)).filter(i => cost(i, o).total > 0);
+    const work = sum(pending, o, c => c.total);
+    const breaks = Math.floor(work / MAX_RUN) * o.breakMin;
+    const skimO = Object.assign({}, o, {skim: new Set(pending.map(i => i.id))});
+    const skimWork = sum(pending, skimO, c => c.total);
+    return {
+      pending: pending.length, work, breaks, span: work + breaks,
+      start: opts.finish - (work + breaks),
+      skimSpan: skimWork + Math.floor(skimWork / MAX_RUN) * o.breakMin,
+      skimStart: opts.finish - (skimWork + Math.floor(skimWork / MAX_RUN) * o.breakMin),
+      readMin: sum(pending, o, c => c.read), qMin: sum(pending, o, c => c.q),
+      perQ: o.perQ,
+    };
+  }
+
+  /* ---------- where you actually are ---------- */
+  function now(p, isDone, items) {
+    const t = nowMin();
+    /* No usable window: every other number below would be measured against an
+       empty plan and would read "ahead", which is nonsense. */
+    if (p.noTime) {
+      return {t, block: null, next: null, plannedMin: 0, doneMin: 0, doneCount: 0,
+              deltaMin: 0, rate: null, projFinish: p.start, ended: false,
+              remainingMin: 0, verdict: 'finish time has passed', state: 'pre'};
+    }
+    const block = p.blocks.find(b => t >= b.start && t < b.end) || null;
+    const next = p.blocks.find(b => b.start > t) || null;
+
+    /* Planned work minutes that should be behind you by now — breaks excluded,
+       because a break is not progress. */
+    let planned = 0;
+    p.blocks.forEach(b => {
+      if (b.kind === 'break') return;
+      if (t >= b.end) planned += b.min;
+      else if (t > b.start) planned += t - b.start;
+    });
+
+    /* Actual: the model cost of every pass finished today, counted against the
+       same yardstick so the two numbers are comparable. */
+    const o = {wpm: p.totals.wpm, perQ: p.totals.perQ,
+               skim: new Set(p.skimmed.map(i => i.id)), noQ: p.noQ};
+    let doneMin = 0, doneCount = 0;
+    (items || []).forEach(i => {
+      const d = isDone.state(i);
+      if (d.p1) { doneMin += cost(i, o).read; doneCount++; }
+      if (d.p2) { doneMin += cost(i, o).q; doneCount++; }
+    });
+
+    const delta = doneMin - planned;              // + ahead, - behind
+    const elapsed = Math.max(1, t - p.start);
+    const remaining = Math.max(0, p.totals.planMin - doneMin);
+    /* Once there is real throughput to measure, trust it over the model. */
+    const rate = doneCount >= 2 && elapsed > 20 ? doneMin / elapsed : null;
+    const projFinish = rate && rate > 0.05 ? t + remaining / rate : p.end;
+
+    /* Past the end of the plan, "3 h behind" is arithmetic rather than news —
+       what matters is how much never got done. */
+    const ended = t >= p.end && p.blocks.length > 0;
+    return {
+      t, block, next, plannedMin: planned, doneMin, doneCount, deltaMin: delta,
+      rate, projFinish, ended, remainingMin: remaining,
+      verdict: t < p.start ? 'starts ' + hhmm(p.start)
+             : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
+             : Math.abs(delta) < 8 ? 'on track'
+             : delta > 0 ? `${dur(delta)} ahead` : `${dur(-delta)} behind`,
+      state: t < p.start ? 'pre'
+           : ended ? (remaining > 2 ? 'behind' : 'ok')
+           : Math.abs(delta) < 8 ? 'ok' : delta > 0 ? 'ahead' : 'behind',
+    };
+  }
+
+  /* ---------- rendering ---------- */
+  const el = (tag, cls, txt) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt != null) e.textContent = txt;
+    return e;
+  };
+  const names = (list, n) => list.slice(0, n).map(i => i.title).join(' · ')
+                           + (list.length > n ? ` +${list.length - n} more` : '');
+
+  function mount(root, opts) {
+    const compact = opts.mode === 'compact';
+    let S = settings();
+
+    const state = () => {
+      const T = opts.ticks ? opts.ticks() : ticks();
+      const skipQ = new Set(S.noQ || []);
+      const isDone = {
+        state: i => {
+          const r = T[i.id] || {};
+          /* no bank, or a bank you have opted out of today: nothing to answer */
+          return {p1: !!r.p1, p2: !!r.p2 || !i.qs || skipQ.has(i.id)};
+        },
+        done: i => { const d = isDone.state(i); return d.p1 && d.p2; },
+      };
+      isDone.all = i => isDone.done(i);
+      return isDone;
+    };
+
+    function build() {
+      const isDone = state();
+      const day = S.day || defaultDay(opts.days, opts.items, isDone);
+      const items = opts.items.filter(i => i.day === day);
+      const T = dayTimes(S, day);
+      const start = T.start != null ? T.start : nowMin();
+      /* Only the untouched default gets moved — once he sets a finish time it
+         stands, even if it is in the past, because that is information. */
+      let finish = parseHHMM(T.finish);
+      if (finish == null) finish = parseHHMM(DEF.finish);
+      /* A finish before the start means one of two things: a small-hours finish
+         (23:00 -> 01:30 is a real study night) or a stale setting. Treat an
+         early-morning time as tomorrow; anything else is the user's to fix. */
+      if (finish <= start && finish < 6 * 60) finish += 24 * 60;
+      if (T.finish === DEF.finish && finish - start <= 30) {
+        finish = Math.ceil((start + 180) / 15) * 15;
+      }
+      /* the same day costed backwards: when would it have to start? */
+      const back = backplan({items, finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
+                             noQ: S.noQ || [], isDone: isDone.done});
+      /* In backwards mode the timetable IS the answer laid out, so it runs from
+         the computed start — with a minute of slack so rounding can't trigger a
+         skim in a plan that fits by construction. */
+      const p = plan({items, start: S.mode === 'back' ? back.start - 1 : start,
+                      finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
+                      skim: S.skim || [], noQ: S.noQ || [], isDone: isDone.done});
+      /* every item of the day, finished or not — `now()` needs the finished
+         ones to weigh what you have actually got through */
+      const n = now(p, isDone, items);
+      return {day, items, p, n, back, isDone};
+    }
+
+    function render() {
+      const {day, items, p, n, back} = build();
+      root.innerHTML = '';
+      root.className = compact ? 'pace compact' : 'pace';
+      root.dataset.state = n.state;
+      compact ? renderCompact(root, p, n) : renderFull(root, day, items, p, n, back);
+    }
+
+    function renderCompact(r, p, n) {
+      const line = el('div', 'pc-line');
+      const b = n.block;
+      line.appendChild(el('b', null,
+        p.noTime ? 'set a finish time'
+           : !b ? (n.t < p.start ? 'starts ' + hhmm(p.start)
+                   : n.remainingMin > 2 ? 'plan ended' : 'day done')
+           : b.kind === 'break' ? 'Break'
+           : (b.kind === 'read' ? 'Read' : 'Questions') + ' · ' + names(b.items, 2)));
+      r.appendChild(line);
+      const sub = el('div', 'pc-sub');
+      sub.appendChild(el('span', null, b ? 'until ' + hhmm(b.end)
+                                         : 'finish ' + hhmm(p.end)));
+      const v = el('span', 'pc-v', n.verdict);
+      sub.appendChild(v);
+      r.appendChild(sub);
+      r.title = `${p.totals.pending} left · ${dur(p.totals.planMin)} planned · `
+              + `projected finish ${hhmm(n.projFinish)}`;
+      r.onclick = () => { location.href = 'tracker.html#pace'; };
+    }
+
+    function renderFull(r, day, items, p, n, back) {
+      /* controls */
+      const bar = el('div', 'pc-bar');
+      const sel = el('select', 'pc-in');
+      (opts.days || []).forEach(d => {
+        const o = el('option', null, d);
+        o.value = d; if (d === day) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.onchange = () => { S = setSettings({day: sel.value}); render(); };
+      bar.append(lab('Day', sel));
+
+      if (S.mode !== 'back') {
+        const st = el('input', 'pc-in pc-t'); st.type = 'time'; st.value = hhmm(p.start);
+        st.onchange = () => { S = setDayTimes(day, {start: parseHHMM(st.value)}); render(); };
+        bar.append(lab('Start', st));
+      }
+
+      const fi = el('input', 'pc-in pc-t'); fi.type = 'time'; fi.value = hhmm(p.finish);
+      fi.onchange = () => { S = setDayTimes(day, {finish: fi.value}); render(); };
+      bar.append(lab('Finish by', fi));
+
+      const wp = el('input', 'pc-in pc-n'); wp.type = 'number'; wp.min = 80; wp.max = 600;
+      wp.step = 10; wp.value = p.totals.wpm;
+      wp.onchange = () => { S = setSettings({wpm: +wp.value || DEF.wpm}); render(); };
+      bar.append(lab('Words/min', wp));
+
+      /* the two modes: squeeze the day into the time I have, or tell me when
+         the day has to begin */
+      const modes = el('div', 'pc-modes');
+      [['fit', 'Fit my day'], ['back', 'When must I start?']].forEach(([m, t]) => {
+        const b = el('button', 'pc-mb' + ((S.mode || 'fit') === m ? ' on' : ''), t);
+        b.onclick = () => { S = setSettings({mode: m}); render(); };
+        modes.appendChild(b);
+      });
+      bar.append(lab('Mode', modes));
+
+      if (S.mode !== 'back') {
+        const reset = el('button', 'pc-act', 'Start now');
+        reset.onclick = () => { S = setDayTimes(day, {start: nowMin()}); render(); };
+        bar.appendChild(reset);
+      }
+      r.appendChild(bar);
+
+      /* ---- backwards mode: one answer, then the same timetable from it ---- */
+      if (S.mode === 'back') {
+        const late = back.start < nowMin();
+        const ans = el('div', 'pc-back' + (late ? ' late' : ''));
+        ans.appendChild(el('b', null, 'Start at ' + hhmm(back.start)));
+        ans.appendChild(el('span', null,
+          `to finish all ${back.pending} by ${hhmm(p.finish)} — `
+          + `${dur(back.readMin)} reading + ${dur(back.qMin)} questions + ${dur(back.breaks)} of breaks`));
+        if (late) {
+          ans.appendChild(el('span', 'pc-bad',
+            `that was ${dur(nowMin() - back.start)} ago · skimming every sheet, `
+            + `start at ${hhmm(back.skimStart)} instead`));
+        }
+        r.appendChild(ans);
+      }
+
+      /* verdict */
+      const head = el('div', 'pc-head');
+      head.appendChild(el('b', 'pc-verdict',
+        p.noTime ? 'finish time has passed' : p.totals.pending ? n.verdict : 'day complete'));
+      head.appendChild(el('span', 'pc-proj',
+        `${p.totals.pending} left · `
+        + (n.ended ? `plan ended ${hhmm(p.end)} — press Start now to re-plan from here`
+                   : `plan ends ${hhmm(p.end)}`)
+        + (n.rate && !n.ended ? ` · at your pace, ${hhmm(n.projFinish)}` : '')));
+      r.appendChild(head);
+
+      /* what the fitter did */
+      const note = el('div', 'pc-note');
+      note.appendChild(el('span', null,
+        `${p.totals.words.toLocaleString()} words + ${p.totals.qs} questions`
+ + ' · '
+        + `${dur(p.totals.fullMin)} at full depth, ${dur(p.totals.planMin)} as planned · `
+        + `${Math.round(p.totals.perQ / 1000)}s per question`));
+      if (p.skimmed.length) {
+        note.appendChild(el('span', 'pc-warn',
+          `skimming ${p.skimmed.length}: ${names(p.skimmed, 3)}`));
+      }
+      if (p.dropped.length) {
+        note.appendChild(el('span', 'pc-bad',
+          `won't reach ${p.dropped.length}: ${names(p.dropped, 3)}`));
+      }
+      if (p.noTime) {
+        note.appendChild(el('span', 'pc-bad',
+          'set a finish time later than the start, or press Start now'));
+      }
+      r.appendChild(note);
+
+      /* Which banks are in today's plan. Off = its questions cost nothing and
+         the lecture counts as done once the sheet is read. */
+      const withQ = items.filter(i => i.qs);
+      if (withQ.length) {
+        const pick = el('div', 'pc-pick');
+        pick.appendChild(el('span', 'pc-picklab', 'Questions today'));
+        const off = new Set(S.noQ || []);
+        withQ.forEach(i => {
+          const b = el('button', 'pc-qc' + (off.has(i.id) ? '' : ' on'),
+                       i.title.replace(/ I and II$/, ''));
+          b.title = `${i.qs} questions · ${dur(i.qs * p.totals.perQ / 60000)}`;
+          b.onclick = () => {
+            const set = new Set(S.noQ || []);
+            set.has(i.id) ? set.delete(i.id) : set.add(i.id);
+            S = setSettings({noQ: [...set]});
+            render();
+          };
+          pick.appendChild(b);
+        });
+        r.appendChild(pick);
+      }
+
+      /* the timetable */
+      const tab = el('div', 'pc-tt');
+      p.blocks.forEach(b => {
+        const row = el('div', 'pc-row ' + b.kind + (n.block === b ? ' on' : '')
+                              + (b.end <= n.t ? ' past' : ''));
+        row.appendChild(el('span', 'pc-when', hhmm(b.start) + '–' + hhmm(b.end)));
+        const body = el('span', 'pc-what');
+        if (b.kind === 'break') body.appendChild(el('i', null, 'break'));
+        else {
+          body.appendChild(el('b', null, b.kind === 'read' ? 'Read' : 'Questions'));
+          b.items.forEach(i => {
+            const c = el('a', 'pc-lec' + (p.skimmed.includes(i) ? ' skim' : ''), i.title);
+            c.href = 'desk.html#' + i.id + (b.kind === 'q' ? '/practice' : '/review-notes');
+            body.appendChild(c);
+          });
+          /* a sheet or bank too long for one sitting continues after the break */
+          if (b.cont) body.appendChild(el('i', 'pc-cont', 'cont.'));
+        }
+        row.appendChild(body);
+        row.appendChild(el('span', 'pc-min', dur(b.min)));
+        tab.appendChild(row);
+      });
+      r.appendChild(tab);
+    }
+
+    function lab(text, input) {
+      const w = el('label', 'pc-lab');
+      w.appendChild(el('span', null, text));
+      w.appendChild(input);
+      return w;
+    }
+
+    render();
+    /* the clock moves on its own; ticks and the median arrive from disk */
+    setInterval(render, 60000);
+    refreshTicks(() => render());
+    refreshPerQ(() => render());
+    return {render};
+  }
+
+  /* Today if today is in the plan, else the first day with work left. */
+  function defaultDay(days, items, isDone) {
+    const today = new Date().toDateString().slice(4, 10).replace(/ 0/, ' ');   // "Sep 19"
+    const byDate = (days || []).find(d => d.indexOf(today) >= 0);
+    if (byDate) return byDate;
+    const open = (days || []).find(d => items.some(i => i.day === d && !isDone.done(i)));
+    return open || (days || [])[0];
+  }
+
+  return {plan, backplan, now, mount, cost, perQms, ticks, settings, setSettings,
+          dayTimes, setDayTimes,
+          hhmm, parseHHMM, nowMin, dur, studyDate, SKIM_FRACTION};
+})();
+</script>
 <script>
-const ROWS=[{"id": "week-1-overview-of-block-1", "title": "Overview of Block 1 & Patient Interview", "who": "Dalton", "disc": "other", "discName": "Other", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-1-molecules-of-life-bonding", "title": "Molecules of Life: Bonding", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 32, "bank": true}, {"id": "week-1-learning-objectives", "title": "Learning Objectives: A Practical Overview", "who": "Dalton", "disc": "other", "discName": "Other", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-1-cell-biology-basic-concepts", "title": "Cell Biology: Basic Concepts", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-1-amino-acids-and-proteins", "title": "Amino Acids & Proteins I and II", "who": "Gangaraju", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 1, "hours": 2, "cseve": false, "qs": 25, "bank": true}, {"id": "week-1-carbohydrates", "title": "Carbohydrates I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 2, "hours": 2, "cseve": false, "qs": 26, "bank": true}, {"id": "week-1-lipids", "title": "Lipids I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 3, "hours": 2, "cseve": false, "qs": 23, "bank": true}, {"id": "week-1-cell-biology-membranes", "title": "Cell Biology: Membranes", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-1-foundations-of-physiology-i", "title": "Foundations of Physiology I", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 34, "bank": true}, {"id": "week-1-foundations-of-physiology-ii", "title": "Foundations of Physiology II", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-1-membrane-transport", "title": "Membrane Transport", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 45, "bank": true}, {"id": "week-1-catalysis", "title": "Catalysis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 4, "hours": 2, "cseve": false, "qs": 36, "bank": true}, {"id": "week-1-purines-and-pyrimidines", "title": "Purines & Pyrimidines", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-1-cell-signaling", "title": "Cell Signaling I and II", "who": "Blumer", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 49, "bank": true}, {"id": "week-1-metabolic-fuels", "title": "Metabolic Fuels", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 8, "hours": 1, "cseve": false, "qs": 26, "bank": true}, {"id": "week-2-nucleic-acids-i-ii", "title": "Nucleic Acids I and II", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 1, "hours": 2, "cseve": false, "qs": 60, "bank": true}, {"id": "week-2-mendelian-genetics-i", "title": "Mendelian Genetics I", "who": "Foil", "disc": "gen", "discName": "Genetics", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 6, "hours": 1, "cseve": false, "qs": 44, "bank": true}, {"id": "week-2-mendelian-genetics-ii", "title": "Mendelian Genetics 2 & Hardy-Weinberg", "who": "Foil", "disc": "gen", "discName": "Genetics", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 7, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-2-molecular-structure-ecm", "title": "Molecular Structure & Function of the Extracellular Matrix (ECM)", "who": "Visconti", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-2-cell-adhesion-ecm", "title": "Cell Biology: Adhesion & the Extracellular Matrix (ECM)", "who": "Visconti", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 30, "bank": true}, {"id": "week-2-cytoskeleton", "title": "Cytoskeleton", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 38, "bank": true}, {"id": "week-2-organization-of-the-genome", "title": "Organization of the Genome", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 37, "bank": true}, {"id": "week-2-gene-expression-i-ii", "title": "Fundamentals of Gene Expression I and II: Transcription (McDermott", "who": "", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 4, "hours": 2, "cseve": false, "qs": 60, "bank": true}, {"id": "week-2-rna-processing", "title": "Fundamentals of Gene Expression III: RNA Processing", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-2-translation", "title": "Fundamentals of Gene Expression IV and V: Translation and Genetic Code", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 50, "bank": true}, {"id": "week-2-pharmacodynamics-i-ii", "title": "Pharmacodynamics I and II", "who": "Blumer", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 2, "hours": 2, "cseve": false, "qs": 59, "bank": true}, {"id": "week-2-principles-of-therapeutics", "title": "Principles of Therapeutics and Adverse Drug Reactions", "who": "Blumer", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 56, "bank": true}, {"id": "week-3-nutrition-i-human-energetics", "title": "Nutrition I- Human Energetics", "who": "Phillips", "disc": "nutr", "discName": "Nutrition", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 31, "bank": true}, {"id": "week-3-nutrition-ii-assessment-diagnosis-intervention", "title": "Nutrition II- Nutrition Assessment, Diagnosis and Intervention", "who": "Phillips", "disc": "nutr", "discName": "Nutrition", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 40, "bank": true}, {"id": "week-3-introduction-to-human-embryology", "title": "Introduction to Human Embryology", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 33, "bank": true}, {"id": "week-3-early-development-week-1", "title": "Early Development: Week 1", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-3-nucleus", "title": "Nucleus", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 25, "bank": true}, {"id": "week-3-mitochondria", "title": "Mitochondria (McDermott", "who": "", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 7, "hours": 1, "cseve": false, "qs": 27, "bank": true}, {"id": "week-3-early-development-weeks-2-4", "title": "Early Development: Weeks 2-4 I and II", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 11, "hours": 2, "cseve": false, "qs": 32, "bank": true}, {"id": "week-3-cellular-basis-protein-synthesis-secretion", "title": "Cellular Basis for Protein Synthesis and Secretion I and II", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 36, "bank": true}, {"id": "week-3-endosomes-lysosomes-endocytosis", "title": "Endosomes, Lysosomes and Endocytosis I and II", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 9, "hours": 2, "cseve": false, "qs": 31, "bank": true}, {"id": "week-3-glycolysis", "title": "Glycolosis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 5, "hours": 2, "cseve": false, "qs": 32, "bank": true}, {"id": "week-3-gluconeogenesis", "title": "Gluconeogenesis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 24, "bank": true}, {"id": "week-4-maintenance-of-the-genome-i-ii-dna-replication", "title": "Maintenance of the Genome I and II: DNA Replication", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 7, "hours": 2, "cseve": false, "qs": 32, "bank": true}, {"id": "week-4-maintenance-of-the-genome-iii-iv-mutations-and-repair", "title": "Maintenance of the Genome III & IV: DNA Mutations and Repair", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 34, "bank": true}, {"id": "week-4-maintenance-of-the-genome-v-dna-rearrangements", "title": "Maintenance of the Genome V: DNA Rearrangements", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 37, "bank": true}, {"id": "week-4-tca-cycle", "title": "TCA Cycle I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 7, "hours": 2, "cseve": false, "qs": 42, "bank": true}, {"id": "week-4-introduction-to-learning-histology", "title": "Basic Concepts in Histology and Introduction to Learning Histology", "who": "McDermott", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 32, "bank": true}, {"id": "week-4-principles-of-drug-disposition", "title": "Principles of Drug Disposition", "who": "Ball", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 37, "bank": true}, {"id": "week-4-principles-of-pharmacokinetics", "title": "Principles of Pharmacokinetics", "who": "Ball", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 34, "bank": true}, {"id": "week-4-oxidative-phosphorylation", "title": "Oxidative Phosphorylation I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 44, "bank": true}, {"id": "week-4-epithelial-tissue", "title": "Epithelial Tissue", "who": "Hazen-Martin", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-4-connective-tissue", "title": "Connective Tissue", "who": "Hazen-Martin", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-4-structure-and-function-of-skeletal-muscle", "title": "Structure and Function of Skeletal Muscle", "who": "Visconti", "disc": "phys", "discName": "Physiology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-4-structure-and-function-of-smooth-muscle", "title": "Structure and Function of Smooth Muscle", "who": "Visconti", "disc": "phys", "discName": "Physiology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "week-5-metabolic-concepts-vitamins-coenzymes-i-and-ii", "title": "Metabolic Concepts I and II: Vitamins and Coenzymes", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 10, "hours": 2, "cseve": false, "qs": 53, "bank": true}, {"id": "week-5-protein-degradation", "title": "Protein Degredation", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 11, "hours": 1, "cseve": false, "qs": 51, "bank": true}, {"id": "week-5-central-nervous-system-tissue-neurons-and-glia", "title": "Central Nervous System Tissue: Neurons and Glia", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 52, "bank": true}, {"id": "week-5-peripheral-nervous-system-tissue", "title": "Peripheral Nervous System Tissue", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 6, "hours": 1, "cseve": false, "qs": 44, "bank": true}, {"id": "week-5-circuitry-i-ii-iii-action-potential", "title": "Circuitry I, II and III", "who": "Woodward", "disc": "phys", "discName": "Physiology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 7, "hours": 3, "cseve": false, "qs": 61, "bank": true}, {"id": "week-5-apoptosis-and-necrosis", "title": "Apoptosis and Necrosis", "who": "Dalton", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 51, "bank": true}, {"id": "week-5-circuitry-synapses-i-and-ii", "title": "Circuitry: Synapses I and II", "who": "Woodward", "disc": "phys", "discName": "Physiology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 60, "bank": true}, {"id": "flipping-for-pass-labs-i-and-ii", "title": "Flipping for PASS Labs I and II", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 2, "cseve": false, "qs": 0, "bank": false}, {"id": "block-1-case-based-applications", "title": "Block 1 Case-Based Applications", "who": "Dalton and McDermott", "disc": "other", "discName": "Other", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "bank": false}, {"id": "fundamentals-of-physical-diagnosis", "title": "Fundamentals of Physical Diagnosis", "who": "Ashley Duckett, MD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "vital-signs", "title": "Vital Signs", "who": "Ashley Duckett, MD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 503, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "medical-interviewing", "title": "Medical Interviewing I and II", "who": "Ritchie", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 500, "hours": 2, "cseve": true, "qs": 0, "bank": false}, {"id": "cultural-competency", "title": "Cultural Competency I", "who": "Shungu", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "health-disparities-and-social-determinants", "title": "Health Disparities and Social Determinants", "who": "Haley", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "gullah-geechee-culture-and-society", "title": "Gullah Geechee: Culture and Society — Implications for Health Care", "who": "J. Herman Blake, PhD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 3: Aug. 31st – Sept. 4th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "evidence-based-medicine", "title": "Terms and Concepts: Evidence Based Medicine", "who": "San Giovanni", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "translational-research", "title": "Translational Research", "who": "Brady", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "motivational-interviewing", "title": "Motivational Interviewing", "who": "Santa Ana", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "introduction-to-ethics", "title": "Introduction to Ethics", "who": "Tanious", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "scientific-method", "title": "Scientific Method", "who": "Williams", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "introduction-to-research-ethics", "title": "Introduction to Research Ethics", "who": "Boan", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "bank": false}, {"id": "physician-patient-relationship", "title": "Ethics TBL 1: The Physician-Patient Relationship", "who": "Tanious", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "bank": false}], WEEKS=["B1 Week 1: Aug 17-21", "B1: Week 2: Aug 24-28", "B1: Week 3: Aug 31-Sep 4", "B1: Week 4: Sep 7-Sep 11", "B1: Week 5/6: Sep 7-Sep 25", "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "Clinical Skills · B1 Week 3: Aug. 31st – Sept. 4th", "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "Clinical Skills · B1 Week 5: Sept. 14th – 18th"], DAYS=["Saturday Sep 19 — biochem foundations + metabolism", "Sunday Sep 20 — cell biology, membranes, matrix", "Monday Sep 21 — nucleotides through DNA", "Tuesday Sep 22 — tissue, neuro, embryology", "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "Not on the plan"], NOTES=false, SRC="tracker.json";
+const ROWS=[{"id": "week-1-overview-of-block-1", "title": "Overview of Block 1 & Patient Interview", "who": "Dalton", "disc": "other", "discName": "Other", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "words": 0, "bank": false}, {"id": "week-1-molecules-of-life-bonding", "title": "Molecules of Life: Bonding", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 32, "words": 5762, "bank": true}, {"id": "week-1-learning-objectives", "title": "Learning Objectives: A Practical Overview", "who": "Dalton", "disc": "other", "discName": "Other", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "words": 0, "bank": false}, {"id": "week-1-cell-biology-basic-concepts", "title": "Cell Biology: Basic Concepts", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 0, "words": 0, "bank": false}, {"id": "week-1-amino-acids-and-proteins", "title": "Amino Acids & Proteins I and II", "who": "Gangaraju", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 1, "hours": 2, "cseve": false, "qs": 25, "words": 8826, "bank": true}, {"id": "week-1-carbohydrates", "title": "Carbohydrates I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 2, "hours": 2, "cseve": false, "qs": 26, "words": 6561, "bank": true}, {"id": "week-1-lipids", "title": "Lipids I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 3, "hours": 2, "cseve": false, "qs": 23, "words": 7143, "bank": true}, {"id": "week-1-cell-biology-membranes", "title": "Cell Biology: Membranes", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 40, "words": 6255, "bank": true}, {"id": "week-1-foundations-of-physiology-i", "title": "Foundations of Physiology I", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 34, "words": 4923, "bank": true}, {"id": "week-1-foundations-of-physiology-ii", "title": "Foundations of Physiology II", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 40, "words": 5399, "bank": true}, {"id": "week-1-membrane-transport", "title": "Membrane Transport", "who": "Mukherjee", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 45, "words": 7861, "bank": true}, {"id": "week-1-catalysis", "title": "Catalysis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 4, "hours": 2, "cseve": false, "qs": 36, "words": 6525, "bank": true}, {"id": "week-1-purines-and-pyrimidines", "title": "Purines & Pyrimidines", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 25, "words": 4191, "bank": true}, {"id": "week-1-cell-signaling", "title": "Cell Signaling I and II", "who": "Blumer", "disc": "phys", "discName": "Physiology", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 49, "words": 2801, "bank": true}, {"id": "week-1-metabolic-fuels", "title": "Metabolic Fuels", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1 Week 1: Aug 17-21", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 8, "hours": 1, "cseve": false, "qs": 26, "words": 2151, "bank": true}, {"id": "week-2-nucleic-acids-i-ii", "title": "Nucleic Acids I and II", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 1, "hours": 2, "cseve": false, "qs": 60, "words": 7747, "bank": true}, {"id": "week-2-mendelian-genetics-i", "title": "Mendelian Genetics I", "who": "Foil", "disc": "gen", "discName": "Genetics", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 6, "hours": 1, "cseve": false, "qs": 44, "words": 6859, "bank": true}, {"id": "week-2-mendelian-genetics-ii", "title": "Mendelian Genetics 2 & Hardy-Weinberg", "who": "Foil", "disc": "gen", "discName": "Genetics", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 7, "hours": 1, "cseve": false, "qs": 40, "words": 4920, "bank": true}, {"id": "week-2-molecular-structure-ecm", "title": "Molecular Structure & Function of the Extracellular Matrix (ECM)", "who": "Visconti", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 25, "words": 6336, "bank": true}, {"id": "week-2-cell-adhesion-ecm", "title": "Cell Biology: Adhesion & the Extracellular Matrix (ECM)", "who": "Visconti", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 30, "words": 5108, "bank": true}, {"id": "week-2-cytoskeleton", "title": "Cytoskeleton", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 38, "words": 4364, "bank": true}, {"id": "week-2-organization-of-the-genome", "title": "Organization of the Genome", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 37, "words": 4699, "bank": true}, {"id": "week-2-gene-expression-i-ii", "title": "Fundamentals of Gene Expression I and II: Transcription (McDermott", "who": "", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 4, "hours": 2, "cseve": false, "qs": 60, "words": 3949, "bank": true}, {"id": "week-2-rna-processing", "title": "Fundamentals of Gene Expression III: RNA Processing", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 40, "words": 2627, "bank": true}, {"id": "week-2-translation", "title": "Fundamentals of Gene Expression IV and V: Translation and Genetic Code", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 50, "words": 3036, "bank": true}, {"id": "week-2-pharmacodynamics-i-ii", "title": "Pharmacodynamics I and II", "who": "Blumer", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 2, "hours": 2, "cseve": false, "qs": 59, "words": 9239, "bank": true}, {"id": "week-2-principles-of-therapeutics", "title": "Principles of Therapeutics and Adverse Drug Reactions", "who": "Blumer", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 2: Aug 24-28", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 56, "words": 8244, "bank": true}, {"id": "week-3-nutrition-i-human-energetics", "title": "Nutrition I- Human Energetics", "who": "Phillips", "disc": "nutr", "discName": "Nutrition", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 31, "words": 26951, "bank": true}, {"id": "week-3-nutrition-ii-assessment-diagnosis-intervention", "title": "Nutrition II- Nutrition Assessment, Diagnosis and Intervention", "who": "Phillips", "disc": "nutr", "discName": "Nutrition", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 40, "words": 33092, "bank": true}, {"id": "week-3-introduction-to-human-embryology", "title": "Introduction to Human Embryology", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 33, "words": 24194, "bank": true}, {"id": "week-3-early-development-week-1", "title": "Early Development: Week 1", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 25, "words": 20550, "bank": true}, {"id": "week-3-nucleus", "title": "Nucleus", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 25, "words": 16724, "bank": true}, {"id": "week-3-mitochondria", "title": "Mitochondria (McDermott", "who": "", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 7, "hours": 1, "cseve": false, "qs": 27, "words": 18058, "bank": true}, {"id": "week-3-early-development-weeks-2-4", "title": "Early Development: Weeks 2-4 I and II", "who": "Gooz", "disc": "embryo", "discName": "Embryology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 11, "hours": 2, "cseve": false, "qs": 32, "words": 30187, "bank": true}, {"id": "week-3-cellular-basis-protein-synthesis-secretion", "title": "Cellular Basis for Protein Synthesis and Secretion I and II", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 36, "words": 14817, "bank": true}, {"id": "week-3-endosomes-lysosomes-endocytosis", "title": "Endosomes, Lysosomes and Endocytosis I and II", "who": "McDermott", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 9, "hours": 2, "cseve": false, "qs": 31, "words": 22053, "bank": true}, {"id": "week-3-glycolysis", "title": "Glycolosis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 5, "hours": 2, "cseve": false, "qs": 32, "words": 31334, "bank": true}, {"id": "week-3-gluconeogenesis", "title": "Gluconeogenesis I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 3: Aug 31-Sep 4", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 6, "hours": 2, "cseve": false, "qs": 24, "words": 22342, "bank": true}, {"id": "week-4-maintenance-of-the-genome-i-ii-dna-replication", "title": "Maintenance of the Genome I and II: DNA Replication", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 7, "hours": 2, "cseve": false, "qs": 32, "words": 20446, "bank": true}, {"id": "week-4-maintenance-of-the-genome-iii-iv-mutations-and-repair", "title": "Maintenance of the Genome III & IV: DNA Mutations and Repair", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 34, "words": 24388, "bank": true}, {"id": "week-4-maintenance-of-the-genome-v-dna-rearrangements", "title": "Maintenance of the Genome V: DNA Rearrangements", "who": "McDermott", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 9, "hours": 1, "cseve": false, "qs": 37, "words": 16795, "bank": true}, {"id": "week-4-tca-cycle", "title": "TCA Cycle I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 7, "hours": 2, "cseve": false, "qs": 42, "words": 22820, "bank": true}, {"id": "week-4-introduction-to-learning-histology", "title": "Basic Concepts in Histology and Introduction to Learning Histology", "who": "McDermott", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 0, "hours": 1, "cseve": false, "qs": 32, "words": 4501, "bank": true}, {"id": "week-4-principles-of-drug-disposition", "title": "Principles of Drug Disposition", "who": "Ball", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 37, "words": 15759, "bank": true}, {"id": "week-4-principles-of-pharmacokinetics", "title": "Principles of Pharmacokinetics", "who": "Ball", "disc": "pharm", "discName": "Pharmacology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 34, "words": 13879, "bank": true}, {"id": "week-4-oxidative-phosphorylation", "title": "Oxidative Phosphorylation I and II", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Saturday Sep 19 — biochem foundations + metabolism", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 44, "words": 26058, "bank": true}, {"id": "week-4-epithelial-tissue", "title": "Epithelial Tissue", "who": "Hazen-Martin", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 1, "hours": 1, "cseve": false, "qs": 0, "words": 5723, "bank": false}, {"id": "week-4-connective-tissue", "title": "Connective Tissue", "who": "Hazen-Martin", "disc": "histo", "discName": "Histology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 2, "hours": 1, "cseve": false, "qs": 0, "words": 5556, "bank": false}, {"id": "week-4-structure-and-function-of-skeletal-muscle", "title": "Structure and Function of Skeletal Muscle", "who": "Visconti", "disc": "phys", "discName": "Physiology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 3, "hours": 1, "cseve": false, "qs": 0, "words": 6102, "bank": false}, {"id": "week-4-structure-and-function-of-smooth-muscle", "title": "Structure and Function of Smooth Muscle", "who": "Visconti", "disc": "phys", "discName": "Physiology", "week": "B1: Week 4: Sep 7-Sep 11", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 4, "hours": 1, "cseve": false, "qs": 0, "words": 6116, "bank": false}, {"id": "week-5-metabolic-concepts-vitamins-coenzymes-i-and-ii", "title": "Metabolic Concepts I and II: Vitamins and Coenzymes", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 10, "hours": 2, "cseve": false, "qs": 53, "words": 22348, "bank": true}, {"id": "week-5-protein-degradation", "title": "Protein Degredation", "who": "Dalton", "disc": "bio", "discName": "Biochemistry", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 11, "hours": 1, "cseve": false, "qs": 51, "words": 5257, "bank": true}, {"id": "week-5-central-nervous-system-tissue-neurons-and-glia", "title": "Central Nervous System Tissue: Neurons and Glia", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 5, "hours": 1, "cseve": false, "qs": 52, "words": 4777, "bank": true}, {"id": "week-5-peripheral-nervous-system-tissue", "title": "Peripheral Nervous System Tissue", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 6, "hours": 1, "cseve": false, "qs": 44, "words": 4215, "bank": true}, {"id": "week-5-circuitry-i-ii-iii-action-potential", "title": "Circuitry I, II and III", "who": "Woodward", "disc": "phys", "discName": "Physiology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 7, "hours": 3, "cseve": false, "qs": 61, "words": 5818, "bank": true}, {"id": "week-5-apoptosis-and-necrosis", "title": "Apoptosis and Necrosis", "who": "Dalton", "disc": "cell", "discName": "Cell Biology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 10, "hours": 1, "cseve": false, "qs": 51, "words": 5020, "bank": true}, {"id": "week-5-circuitry-synapses-i-and-ii", "title": "Circuitry: Synapses I and II", "who": "Woodward", "disc": "phys", "discName": "Physiology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 8, "hours": 2, "cseve": false, "qs": 60, "words": 13829, "bank": true}, {"id": "flipping-for-pass-labs-i-and-ii", "title": "Flipping for PASS Labs I and II", "who": "Boger", "disc": "histo", "discName": "Histology", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 2, "cseve": false, "qs": 0, "words": 0, "bank": false}, {"id": "block-1-case-based-applications", "title": "Block 1 Case-Based Applications", "who": "Dalton and McDermott", "disc": "other", "discName": "Other", "week": "B1: Week 5/6: Sep 7-Sep 25", "dayGroup": "Not on the plan", "dayOrder": 900, "hours": 1, "cseve": false, "qs": 0, "words": 0, "bank": false}, {"id": "fundamentals-of-physical-diagnosis", "title": "Fundamentals of Physical Diagnosis", "who": "Ashley Duckett, MD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "words": 1628, "bank": false}, {"id": "vital-signs", "title": "Vital Signs", "who": "Ashley Duckett, MD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 503, "hours": 1, "cseve": true, "qs": 0, "words": 2072, "bank": false}, {"id": "medical-interviewing", "title": "Medical Interviewing I and II", "who": "Ritchie", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 500, "hours": 2, "cseve": true, "qs": 0, "words": 2891, "bank": false}, {"id": "cultural-competency", "title": "Cultural Competency I", "who": "Shungu", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "words": 3480, "bank": false}, {"id": "health-disparities-and-social-determinants", "title": "Health Disparities and Social Determinants", "who": "Haley", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "words": 1934, "bank": false}, {"id": "gullah-geechee-culture-and-society", "title": "Gullah Geechee: Culture and Society — Implications for Health Care", "who": "J. Herman Blake, PhD", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 3: Aug. 31st – Sept. 4th", "dayGroup": "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "words": 1263, "bank": false}, {"id": "evidence-based-medicine", "title": "Terms and Concepts: Evidence Based Medicine", "who": "San Giovanni", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "words": 2027, "bank": false}, {"id": "translational-research", "title": "Translational Research", "who": "Brady", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "words": 1787, "bank": false}, {"id": "motivational-interviewing", "title": "Motivational Interviewing", "who": "Santa Ana", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "words": 3582, "bank": false}, {"id": "introduction-to-ethics", "title": "Introduction to Ethics", "who": "Tanious", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 500, "hours": 1, "cseve": true, "qs": 0, "words": 2400, "bank": false}, {"id": "scientific-method", "title": "Scientific Method", "who": "Williams", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Sunday Sep 20 — cell biology, membranes, matrix", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "words": 1040, "bank": false}, {"id": "introduction-to-research-ethics", "title": "Introduction to Research Ethics", "who": "Boan", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Monday Sep 21 — nucleotides through DNA", "dayOrder": 501, "hours": 1, "cseve": true, "qs": 0, "words": 3364, "bank": false}, {"id": "physician-patient-relationship", "title": "Ethics TBL 1: The Physician-Patient Relationship", "who": "Tanious", "disc": "cs", "discName": "Clinical Skills", "week": "Clinical Skills · B1 Week 5: Sept. 14th – 18th", "dayGroup": "Tuesday Sep 22 — tissue, neuro, embryology", "dayOrder": 502, "hours": 1, "cseve": true, "qs": 0, "words": 3944, "bank": false}], WEEKS=["B1 Week 1: Aug 17-21", "B1: Week 2: Aug 24-28", "B1: Week 3: Aug 31-Sep 4", "B1: Week 4: Sep 7-Sep 11", "B1: Week 5/6: Sep 7-Sep 25", "Clinical Skills · B1 Week 1: Aug. 17th – 21st", "Clinical Skills · B1 Week 2: Aug. 24th – 28th", "Clinical Skills · B1 Week 3: Aug. 31st – Sept. 4th", "Clinical Skills · B1 Week 4: Sept. 8th – 11th", "Clinical Skills · B1 Week 5: Sept. 14th – 18th"], DAYS=["Saturday Sep 19 — biochem foundations + metabolism", "Sunday Sep 20 — cell biology, membranes, matrix", "Monday Sep 21 — nucleotides through DNA", "Tuesday Sep 22 — tissue, neuro, embryology", "Wednesday Sep 23 — physiology, pharmacology, nutrition + sweep", "Not on the plan"], NOTES=false, SRC="tracker.json";
 const $=s=>document.querySelector(s);
 let S={}, mode='week', last=0;
 
-/* theme follows the viewer's own OS setting; there is no toggle to persist */
-document.documentElement.setAttribute('data-theme',
-  matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+/* ---- theme: the viewer's choice, their browser, three site palettes ---- */
+const THEMES=['light','dark','sepia'],TI={light:'☀',dark:'☾',sepia:'❧'};
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('b1v-theme',t)}catch(e){}
+  $('#theme').textContent=TI[t];$('#theme').title='Theme: '+t+' — click to change';}
+$('#theme').onclick=()=>{const c=document.documentElement.getAttribute('data-theme')||'light';
+  setTheme(THEMES[(THEMES.indexOf(c)+1)%THEMES.length]);};
+setTheme(document.documentElement.getAttribute('data-theme')||'light');
+
+/* ---- his schedule: the window he set for each day, and where he is in it ----
+   Rendered with the same planner his own pages use (inlined above), fed the
+   published day windows, so what a viewer sees is what he sees. */
+let PACE={days:{}};
+function schedule(){
+  const box=$('#sched');box.innerHTML='';
+  const today=Pace.nowMin(), stamp=new Date().toString().slice(4,10).replace(/ 0/,' ');
+  const todayDay=DAYS.find(d=>d.indexOf(stamp)>=0);
+  const win=d=>{
+    const t=(PACE.days||{})[d]||{};
+    const st=t.start!=null?Pace.hhmm(t.start):null;
+    const fi=t.finish||null;
+    return st||fi?{st,fi}:null;
+  };
+  const hd=document.createElement('div');hd.className='hd';
+  if(todayDay){
+    const w=win(todayDay);
+    hd.innerHTML='<b></b><span class="win"></span><span class="vd"></span>';
+    hd.querySelector('b').textContent='Today — '+todayDay.split(' —')[0];
+    hd.querySelector('.win').textContent=w?((w.st||'—')+' → '+(w.fi||'—')):'no hours set';
+    box.appendChild(hd);
+    if(w&&w.st){
+      /* lay his day out exactly as his own pacer would */
+      const items=ROWS.filter(r=>r.dayGroup===todayDay)
+        .map(r=>({id:r.id,title:r.title,day:r.dayGroup,order:r.dayOrder,
+                  words:r.words||0,qs:r.qs||0,cseve:r.cseve}))
+        .sort((a,b)=>a.order-b.order);
+      const done=i=>{const s=st(i.id);return !!s.p1&&(!!s.p2||!i.qs);};
+      const p=Pace.plan({items,start:(PACE.days[todayDay]||{}).start,
+                         finish:Pace.parseHHMM(w.fi||'21:00'),wpm:PACE.wpm||230,
+                         noQ:PACE.noQ||[],isDone:done});
+      const n=Pace.now(p,{state:i=>{const s=st(i.id);
+                                    return {p1:!!s.p1,p2:!!s.p2||!i.qs};}},items);
+      /* before the start, the line below already says "starts 08:30" — don't
+         print it twice */
+      hd.querySelector('.vd').textContent=n.state==='pre'?'':n.verdict;
+      hd.querySelector('.vd').style.color=
+        n.state==='behind'?'var(--corr)':n.state==='pre'?'var(--ink3)':'var(--ok)';
+      const now=document.createElement('div');now.className='now';
+      const b=n.block;
+      now.innerHTML=b?('<b>'+(b.kind==='break'?'On a break':
+          (b.kind==='read'?'Reading':'Questions')+' — '+b.items.map(i=>i.title).join(', '))
+          +'</b> <i>until '+Pace.hhmm(b.end)+'</i>')
+        :('<i>'+(today<p.start?'starts '+Pace.hhmm(p.start):'plan ended '+Pace.hhmm(p.end))+'</i>');
+      box.appendChild(now);
+    }
+  }else{
+    hd.innerHTML='<b>Not a study day</b><span class="win">the plan runs Sat 19 – Wed 23 Sep</span>';
+    box.appendChild(hd);
+  }
+  const row=document.createElement('div');row.className='days';
+  DAYS.filter(d=>d!=='Not on the plan').forEach(d=>{
+    const w=win(d), c=document.createElement('span');
+    c.className='dayc'+(d===todayDay?' today':'')+(w?'':' unset');
+    c.innerHTML='<b>'+d.split(' —')[0]+'</b> '+(w?((w.st||'—')+'–'+(w.fi||'—')):'not set');
+    row.appendChild(c);
+  });
+  box.appendChild(row);
+}
 
 const PASSES=[['p1','P1 — sheet read'],['p2','P2 — questions'],['anki','Anki']];
 const groupsOf=()=>mode==='day'?DAYS:WEEKS;
@@ -398,12 +1110,16 @@ function stamp(){
   const s=Math.round((Date.now()-last)/1000);
   $('#stamp').textContent='updated '+(s<60?s+'s':Math.round(s/60)+'m')+' ago';
 }
+function pullPace(){
+  fetch('pace.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null)
+    .then(d=>{if(d){PACE=d;schedule();}}).catch(()=>{});
+}
 function pull(){
   /* the cache-buster matters on Pages: its CDN would otherwise serve the copy
      it cached before the last push */
   fetch(SRC+(SRC.indexOf('?')<0?'?t=':'&t=')+Date.now(),{cache:'no-store'})
     .then(r=>r.ok?r.json():null).then(d=>{
-    if(d&&d.rows){S=d.rows;last=Date.now();render();}
+    if(d&&d.rows){S=d.rows;last=Date.now();render();schedule();}
     stamp();
   }).catch(()=>{$('#stamp').textContent="could not load the latest progress";});
 }
@@ -412,8 +1128,9 @@ document.querySelectorAll('.mb').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.mb').forEach(x=>x.classList.toggle('on',x.dataset.m===mode));
   render();
 });
-render(); pull();
-setInterval(pull,30000);      /* live enough to watch, light enough to ignore */
+render(); schedule(); pull(); pullPace();
+setInterval(pull,30000);
+setInterval(pullPace,60000);      /* live enough to watch, light enough to ignore */
 setInterval(stamp,10000);
 </script>
 </body></html>

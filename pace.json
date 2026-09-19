@@ -1,0 +1,16 @@
+{
+ "wpm": 230,
+ "finish": "21:00",
+ "mode": "fit",
+ "noQ": [],
+ "days": {
+  "Saturday Sep 19 \u2014 biochem foundations + metabolism": {
+   "start": 510,
+   "finish": "19:00"
+  },
+  "Sunday Sep 20 \u2014 cell biology, membranes, matrix": {
+   "start": 600,
+   "finish": "22:00"
+  }
+ }
+}
