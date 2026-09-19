@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T18:58:13.110Z",
+ "updated": "2026-09-19T19:49:04.121Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -27,8 +27,9 @@
   },
   "week-1-lipids": {
    "p1": true,
-   "at": 1789844293108,
-   "conf": "3"
+   "at": 1789847344120,
+   "conf": "3",
+   "p2": true
   },
   "week-1-cell-biology-membranes": {},
   "week-1-foundations-of-physiology-i": {},
