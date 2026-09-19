@@ -1,16 +1,17 @@
 {
+ "perQ": 48496,
  "finish": "21:00",
  "wpm": 230,
  "breakPerHour": 10,
  "cluster": 4,
  "days": {
   "Saturday Sep 19 \u2014 biochem foundations + metabolism": {
-   "finish": "23:30",
-   "start": 420
+   "finish": "01:30",
+   "start": 660
   }
  },
  "mode": "fit",
- "date": "2026-09-18",
+ "date": "2026-09-19",
  "noQ": [
   "week-1-molecules-of-life-bonding",
   "week-1-amino-acids-and-proteins",
