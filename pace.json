@@ -6,15 +6,8 @@
  "cluster": 4,
  "days": {
   "Saturday Sep 19 \u2014 biochem foundations + metabolism": {
-   "finish": "01:30",
-   "start": 660
+   "start": 420
   }
  },
- "mode": "fit",
- "date": "2026-09-19",
- "noQ": [
-  "week-1-amino-acids-and-proteins",
-  "week-1-molecules-of-life-bonding",
-  "week-1-catalysis"
- ]
+ "date": "2026-09-19"
 }
