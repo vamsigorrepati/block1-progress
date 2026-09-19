@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T19:49:04.121Z",
+ "updated": "2026-09-19T20:32:46.433Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -35,7 +35,11 @@
   "week-1-foundations-of-physiology-i": {},
   "week-1-foundations-of-physiology-ii": {},
   "week-1-membrane-transport": {},
-  "week-1-catalysis": {},
+  "week-1-catalysis": {
+   "p1": true,
+   "at": 1789849966431,
+   "conf": "5"
+  },
   "week-1-purines-and-pyrimidines": {},
   "week-1-cell-signaling": {},
   "week-1-metabolic-fuels": {},
