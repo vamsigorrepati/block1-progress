@@ -1,5 +1,5 @@
 {
- "perQ": 48496,
+ "perQ": 90000,
  "finish": "21:00",
  "wpm": 160,
  "breakPerHour": 10,
@@ -17,5 +17,6 @@
   "week-1-amino-acids-and-proteins",
   "week-1-molecules-of-life-bonding",
   "week-1-catalysis"
- ]
+ ],
+ "secPerQ": 90
 }

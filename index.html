@@ -413,7 +413,11 @@ footer{margin-top:24px;font-size:11.5px;color:var(--ink3);line-height:1.7}
 const Pace = (() => {
 
   const K = 'bs-pace';                    // settings only; ticks live in bs-tracker
-  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4};
+  /* secPerQ is the USMLE allowance — 60 min for 40 items on a Step 1 block, so
+     90 s an item. His own median on this site is about half that, but a bank
+     answered at speed is not the pace the exam is scored at, so the day is
+     planned at exam time and the field is editable. */
+  const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4, secPerQ: 90};
   const MAX_RUN = 55;                     // minutes of work before a break is due
   const OVERSHOOT = 10;                   // ...unless the block only just exceeds it
   const SEED_Q_MS = 75000;                // practice/dashboard.js CONST.SEED_MS
@@ -522,6 +526,11 @@ const Pace = (() => {
     } catch (e) { return []; }
   }
   function perQms() {
+    const s = settings();
+    return (+s.secPerQ || DEF.secPerQ) * 1000;
+  }
+  /* kept for the readout: what he actually averages, next to what he is planned at */
+  function measuredQms() {
     if (_perQ === null) _perQ = medianOf(attempts(), false, SEED_Q_MS);
     return _perQ;
   }
@@ -931,6 +940,11 @@ const Pace = (() => {
       wp.onchange = () => { S = setSettings({wpm: +wp.value || DEF.wpm}); render(); };
       bar.append(lab('Words/min', wp));
 
+      const sq = el('input', 'pc-in pc-n'); sq.type = 'number'; sq.min = 20; sq.max = 300;
+      sq.step = 5; sq.value = Math.round(p.totals.perQ / 1000);
+      sq.onchange = () => { S = setSettings({secPerQ: +sq.value || DEF.secPerQ}); render(); };
+      bar.append(lab('Sec/question', sq));
+
       /* the two modes: squeeze the day into the time I have, or tell me when
          the day has to begin */
       const modes = el('div', 'pc-modes');
@@ -981,7 +995,8 @@ const Pace = (() => {
         `${p.totals.words.toLocaleString()} words + ${p.totals.qs} questions`
  + ' · '
         + `${dur(p.totals.fullMin)} at full depth, ${dur(p.totals.planMin)} as planned · `
-        + `${Math.round(p.totals.perQ / 1000)}s per question`));
+        + `${Math.round(p.totals.perQ / 1000)}s per question`
+        + (measuredQms() ? ` (you average ${Math.round(measuredQms() / 1000)}s)` : '')));
       if (p.skimmed.length) {
         note.appendChild(el('span', 'pc-warn',
           `skimming ${p.skimmed.length}: ${names(p.skimmed, 3)}`));
@@ -1132,13 +1147,13 @@ function schedule(){
          backwards answer — when the day has to begin to fit — rather than
          guessing with the VIEWER's clock, which may be another timezone. */
       const fin=Pace.parseHHMM(w.fi||'21:00');
-      const back=Pace.backplan({items,finish:fin,wpm:PACE.wpm||230,perQ:PACE.perQ,
+      const back=Pace.backplan({items,finish:fin,wpm:PACE.wpm||230,perQ:PACE.perQ||90000,
                                 noQ:PACE.noQ||[],state:pass,isDone:done});
       const startMin=(PACE.days[todayDay]||{}).start!=null
         ? (PACE.days[todayDay]||{}).start : back.start;
       const p=Pace.plan({items,start:startMin,state:pass,
                          finish:fin,wpm:PACE.wpm||230,
-                         perQ:PACE.perQ,        /* his pace, not this browser's */
+                         perQ:PACE.perQ||90000, /* USMLE 90s, from his settings not this browser */
                          noQ:PACE.noQ||[],isDone:done});
       const n=Pace.now(p,{state:i=>{const s=st(i.id);
                                     return {p1:!!s.p1,p2:!!s.p2||!i.qs};}},items);
