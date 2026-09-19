@@ -423,6 +423,12 @@ const Pace = (() => {
   /* ---------- time helpers: everything internal is minutes-since-midnight ---- */
   const pad = n => String(n).padStart(2, '0');
   const hhmm = m => pad(Math.floor(((m % 1440) + 1440) % 1440 / 60)) + ':' + pad(Math.round(m) % 60);
+  /* Everything a human reads is 12-hour. hhmm() stays because <input type="time">
+     and the stored settings must remain machine-readable 24-hour. */
+  const t12 = m => {
+    const x = ((Math.round(m) % 1440) + 1440) % 1440, h = Math.floor(x / 60);
+    return (h % 12 || 12) + ':' + pad(x % 60) + (h < 12 ? ' am' : ' pm');
+  };
   const parseHHMM = s => {
     const m = /^(\d{1,2}):(\d{2})$/.exec((s || '').trim());
     return m ? (+m[1]) * 60 + (+m[2]) : null;
@@ -735,7 +741,7 @@ const Pace = (() => {
     return {
       t, block, next, plannedMin: planned, doneMin, doneCount, deltaMin: delta,
       rate, projFinish, ended, remainingMin: remaining,
-      verdict: t < p.start ? 'starts ' + hhmm(p.start)
+      verdict: t < p.start ? 'starts ' + t12(p.start)
              : ended ? (remaining > 2 ? `${dur(remaining)} unfinished` : 'day complete')
              : Math.abs(delta) < 8 ? 'on track'
              : delta > 0 ? `${dur(delta)} ahead` : `${dur(-delta)} behind`,
@@ -819,19 +825,19 @@ const Pace = (() => {
       const b = n.block;
       line.appendChild(el('b', null,
         p.noTime ? 'set a finish time'
-           : !b ? (n.t < p.start ? 'starts ' + hhmm(p.start)
+           : !b ? (n.t < p.start ? 'starts ' + t12(p.start)
                    : n.remainingMin > 2 ? 'plan ended' : 'day done')
            : b.kind === 'break' ? 'Break'
            : (b.kind === 'read' ? 'Read' : 'Questions') + ' · ' + names(b.items, 2)));
       r.appendChild(line);
       const sub = el('div', 'pc-sub');
-      sub.appendChild(el('span', null, b ? 'until ' + hhmm(b.end)
-                                         : 'finish ' + hhmm(p.end)));
+      sub.appendChild(el('span', null, b ? 'until ' + t12(b.end)
+                                         : 'finish ' + t12(p.end)));
       const v = el('span', 'pc-v', n.verdict);
       sub.appendChild(v);
       r.appendChild(sub);
       r.title = `${p.totals.pending} left · ${dur(p.totals.planMin)} planned · `
-              + `projected finish ${hhmm(n.projFinish)}`;
+              + `projected finish ${t12(n.projFinish)}`;
       r.onclick = () => { location.href = 'tracker.html#pace'; };
     }
 
@@ -883,14 +889,14 @@ const Pace = (() => {
       if (S.mode === 'back') {
         const late = back.start < nowMin();
         const ans = el('div', 'pc-back' + (late ? ' late' : ''));
-        ans.appendChild(el('b', null, 'Start at ' + hhmm(back.start)));
+        ans.appendChild(el('b', null, 'Start at ' + t12(back.start)));
         ans.appendChild(el('span', null,
-          `to finish all ${back.pending} by ${hhmm(p.finish)} — `
+          `to finish all ${back.pending} by ${t12(p.finish)} — `
           + `${dur(back.readMin)} reading + ${dur(back.qMin)} questions + ${dur(back.breaks)} of breaks`));
         if (late) {
           ans.appendChild(el('span', 'pc-bad',
             `that was ${dur(nowMin() - back.start)} ago · skimming every sheet, `
-            + `start at ${hhmm(back.skimStart)} instead`));
+            + `start at ${t12(back.skimStart)} instead`));
         }
         r.appendChild(ans);
       }
@@ -901,9 +907,9 @@ const Pace = (() => {
         p.noTime ? 'finish time has passed' : p.totals.pending ? n.verdict : 'day complete'));
       head.appendChild(el('span', 'pc-proj',
         `${p.totals.pending} left · `
-        + (n.ended ? `plan ended ${hhmm(p.end)} — press Start now to re-plan from here`
-                   : `plan ends ${hhmm(p.end)}`)
-        + (n.rate && !n.ended ? ` · at your pace, ${hhmm(n.projFinish)}` : '')));
+        + (n.ended ? `plan ended ${t12(p.end)} — press Start now to re-plan from here`
+                   : `plan ends ${t12(p.end)}`)
+        + (n.rate && !n.ended ? ` · at your pace, ${t12(n.projFinish)}` : '')));
       r.appendChild(head);
 
       /* what the fitter did */
@@ -954,7 +960,7 @@ const Pace = (() => {
       p.blocks.forEach(b => {
         const row = el('div', 'pc-row ' + b.kind + (n.block === b ? ' on' : '')
                               + (b.end <= n.t ? ' past' : ''));
-        row.appendChild(el('span', 'pc-when', hhmm(b.start) + '–' + hhmm(b.end)));
+        row.appendChild(el('span', 'pc-when', t12(b.start) + '–' + t12(b.end)));
         const body = el('span', 'pc-what');
         if (b.kind === 'break') body.appendChild(el('i', null, 'break'));
         else {
@@ -1000,7 +1006,7 @@ const Pace = (() => {
 
   return {plan, backplan, now, mount, cost, perQms, ticks, settings, setSettings,
           dayTimes, setDayTimes,
-          hhmm, parseHHMM, nowMin, dur, studyDate, SKIM_FRACTION};
+          hhmm, t12, parseHHMM, nowMin, dur, studyDate, SKIM_FRACTION};
 })();
 </script>
 <script>
@@ -1027,8 +1033,8 @@ function schedule(){
   const todayDay=DAYS.find(d=>d.indexOf(stamp)>=0);
   const win=d=>{
     const t=(PACE.days||{})[d]||{};
-    const st=t.start!=null?Pace.hhmm(t.start):null;
-    const fi=t.finish||null;
+    const st=t.start!=null?Pace.t12(t.start):null;
+    const fi=t.finish?Pace.t12(Pace.parseHHMM(t.finish)):null;
     return st||fi?{st,fi}:null;
   };
   const hd=document.createElement('div');hd.className='hd';
@@ -1072,13 +1078,13 @@ function schedule(){
       if(!w.st){
         const hint=document.createElement('div');hint.className='now';
         hint.innerHTML='<i>no start time set — this is the schedule that fits, '
-          +'beginning '+Pace.hhmm(p.start)+'</i>';
+          +'beginning '+Pace.t12(p.start)+'</i>';
         box.appendChild(hint);
       }
       now.innerHTML=b?('<b>'+(b.kind==='break'?'On a break':
           (b.kind==='read'?'Reading':'Questions')+' — '+b.items.map(i=>i.title).join(', '))
-          +'</b> <i>until '+Pace.hhmm(b.end)+'</i>')
-        :('<i>'+(today<p.start?'starts '+Pace.hhmm(p.start):'plan ended '+Pace.hhmm(p.end))+'</i>');
+          +'</b> <i>until '+Pace.t12(b.end)+'</i>')
+        :('<i>'+(today<p.start?'starts '+Pace.t12(p.start):'plan ended '+Pace.t12(p.end))+'</i>');
       box.appendChild(now);
 
       /* The day itself, block by block. Folded by default — 37 rows would
@@ -1087,7 +1093,7 @@ function schedule(){
       const det=document.createElement('details');det.className='ttwrap';
       const sum=document.createElement('summary');
       sum.textContent=p.blocks.filter(x=>x.kind!=='break').length+' blocks · '
-        +Pace.hhmm(p.start)+'–'+Pace.hhmm(p.end)
+        +Pace.t12(p.start)+'–'+Pace.t12(p.end)
         +(p.totals.pending?' · '+p.totals.pending+' lectures':'');
       det.appendChild(sum);
       const tt=document.createElement('div');tt.className='tt';
@@ -1095,7 +1101,7 @@ function schedule(){
         const r=document.createElement('div');
         r.className='ttr '+bl.kind+(bl===b?' on':'')+(bl.end<=today?' past':'');
         const w=document.createElement('span');w.className='ttw';
-        w.textContent=Pace.hhmm(bl.start)+'–'+Pace.hhmm(bl.end);
+        w.textContent=Pace.t12(bl.start)+'–'+Pace.t12(bl.end);
         const t=document.createElement('span');t.className='ttt';
         t.textContent=bl.kind==='break'?'break'
           :(bl.kind==='read'?'Read ':'Questions ')+bl.items.map(i=>i.title).join(', ')
