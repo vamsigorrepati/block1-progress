@@ -1,1 +1,13 @@
-{"finish": "21:00", "wpm": 230, "breakPerHour": 10, "cluster": 4, "days": {"Saturday Sep 19 \u2014 biochem foundations + metabolism": {"finish": "23:03"}}, "mode": "back", "date": "2026-09-18", "perQ": 48000}
+{
+ "finish": "21:00",
+ "wpm": 230,
+ "breakPerHour": 10,
+ "cluster": 4,
+ "days": {
+  "Saturday Sep 19 \u2014 biochem foundations + metabolism": {
+   "finish": "23:30"
+  }
+ },
+ "mode": "back",
+ "date": "2026-09-18"
+}
