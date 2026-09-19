@@ -11,13 +11,18 @@
    "start": 660,
    "finish": "01:30",
    "at": 1789832008307
+  },
+  "Sunday Sep 20 \u2014 cell biology, membranes, matrix": {
+   "finish": "23:00",
+   "at": 1789852528639
   }
  },
- "mode": "fit",
+ "mode": "back",
  "noQ": [
   "week-1-molecules-of-life-bonding",
   "week-1-catalysis",
   "week-1-amino-acids-and-proteins"
  ],
- "date": "2026-09-19"
+ "date": "2026-09-19",
+ "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix"
 }
