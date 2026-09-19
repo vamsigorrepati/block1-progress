@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T20:32:46.433Z",
+ "updated": "2026-09-19T22:13:07.913Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -64,7 +64,11 @@
   "week-3-early-development-weeks-2-4": {},
   "week-3-cellular-basis-protein-synthesis-secretion": {},
   "week-3-endosomes-lysosomes-endocytosis": {},
-  "week-3-glycolysis": {},
+  "week-3-glycolysis": {
+   "p1": true,
+   "at": 1789855987911,
+   "conf": "4"
+  },
   "week-3-gluconeogenesis": {},
   "week-4-maintenance-of-the-genome-i-ii-dna-replication": {},
   "week-4-maintenance-of-the-genome-iii-iv-mutations-and-repair": {},
