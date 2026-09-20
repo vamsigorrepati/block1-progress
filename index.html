@@ -854,7 +854,7 @@ const Pace = (() => {
        across a break — "Glycolysis (cont.)" — and you cannot tick it until the
        whole thing is read, so judging the first half at the break called you
        late for work that was still in progress by design. */
-    const overdue = p.blocks.find(b => b.kind !== 'break' && b.final && b.end <= t && !b.done);
+    const overdue = p.blocks.find(b => b.kind !== 'break' && b.final && b.end <= t - 1 && !b.done);
     let aheadTo = null;
     if (!overdue) {
       for (let k = 0; k < p.blocks.length; k++) {
