@@ -419,6 +419,7 @@ const Pace = (() => {
      planned at exam time and the field is editable. */
   const DEF = {finish: '21:00', wpm: 230, breakPerHour: 10, cluster: 4, secPerQ: 90, order: 'lecture'};
   const MAX_RUN = 55;                     // minutes of work before a break is due
+  const MIN_BREAK = 6;                    // breaks shorten before a sheet is skimmed
   const OVERSHOOT = 10;                   // ...unless the block only just exceeds it
   const SEED_Q_MS = 75000;                // practice/dashboard.js CONST.SEED_MS
   const SEED_D_MS = 20000;                // a drill is a recall item, not a vignette
@@ -614,13 +615,24 @@ const Pace = (() => {
     const skim = new Set(o.skim);
     const dropped = [];
     let work = list.slice();
-    const totalWith = (l, sk) => {
+    let breakMin = o.breakMin;
+    const totalWith = (l, sk, bm) => {
       const oo = Object.assign({}, o, {skim: sk});
       const work = sum(l, oo, c => c.total);
       /* breaks are a function of WORK, not of how the work is grouped: one per
          MAX_RUN minutes, which is what "10 minutes an hour" actually means */
-      return work + Math.floor(work / MAX_RUN) * o.breakMin;
+      return work + Math.floor(work / MAX_RUN) * (bm == null ? breakMin : bm);
     };
+    /* Breaks flex; sheets do not. A day 25 minutes over its window was skimming
+       a 22,000-word sheet to save 4 hours it did not need, when trimming twelve
+       breaks from 10 minutes to 8 covers it. Only shorten them when that alone
+       makes the day fit — a day hours over should keep proper breaks and lose
+       depth instead. */
+    if (totalWith(work, skim) > avail) {
+      for (let bm = o.breakMin - 1; bm >= MIN_BREAK; bm--) {
+        if (totalWith(work, skim, bm) <= avail) { breakMin = bm; break; }
+      }
+    }
     for (let guard = 0; guard < 400; guard++) {
       if (totalWith(work, skim) <= avail || !work.length) break;
       const cand = work.filter(i => !skim.has(i.id) && i.words > 0)
@@ -629,7 +641,7 @@ const Pace = (() => {
       if (work.length <= 1) break;                   // can't shrink further
       dropped.unshift(work.pop());
     }
-    return {work, skim, dropped, over: totalWith(work, skim) > avail};
+    return {work, skim, dropped, breakMin, over: totalWith(work, skim) > avail};
   }
 
   /* ---------- plan ---------- */
@@ -662,12 +674,22 @@ const Pace = (() => {
 
     /* Only unfinished work is scheduled, and the CS evening block stays last
        however the rest is chunked. */
+    /* A hand-picked order for the day wins over the plan's own; anything not in
+       the list keeps its place behind those that are. The order is the day's
+       shape, so it belongs to the day, not to the session. */
+    const seq = opts.seq && opts.seq.length ? opts.seq : null;
+    const ordered = seq
+      ? opts.items.slice().sort((a, b) => {
+          const ia = seq.indexOf(a.id), ib = seq.indexOf(b.id);
+          return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+        })
+      : opts.items;
     /* every lecture of the day, done or not — the timetable is the day */
-    const all = opts.items.filter(i => cost(i, o).total > 0);
+    const all = ordered.filter(i => cost(i, o).total > 0);
     /* A lecture with no review sheet and no bank costs nothing, so it fell out
        of the timetable without a word — which reads as "that lecture is not on
        Sunday" when it is, and only its study page exists. Named, not dropped. */
-    const nothing = opts.items.filter(i => cost(i, o).total <= 0);
+    const nothing = ordered.filter(i => cost(i, o).total <= 0);
     const pending = all.filter(i => owed(i, o).total > 0);
     const sci = all.filter(i => !i.cseve);
     const cs = all.filter(i => i.cseve);
@@ -675,6 +697,7 @@ const Pace = (() => {
     const f = fitList(sci.concat(cs), avail, o);
     const keptSci = f.work.filter(i => !i.cseve), keptCs = f.work.filter(i => i.cseve);
     const oo = Object.assign({}, o, {skim: f.skim});
+    o.breakMin = f.breakMin;            // the fitter may have shortened them to fit
 
     /* Order of the day. 'lecture' (the default) works a cluster of sheets and
        then their banks, so questions stay spread through the day; 'reading'
@@ -743,6 +766,8 @@ const Pace = (() => {
     return {
       blocks, start, finish, end: t, avail,
       nothing,
+      breakMin: f.breakMin,
+      breaks: blocks.reduce((n, b) => n + (b.kind === 'break' ? b.min : 0), 0),
       skimmed: f.work.filter(i => f.skim.has(i.id)),
       dropped: f.dropped, over: f.over, noQ: o.noQ,
       fits: t <= finish + 1,
@@ -944,7 +969,7 @@ const Pace = (() => {
       }
       /* the same day costed backwards: when would it have to start? */
       const back = backplan({items, finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
-                             noQ: S.noQ || [], order: S.order,
+                             noQ: S.noQ || [], order: S.order, seq: (S.seq || {})[day],
                              state: isDone.state, isDone: isDone.done});
       /* In backwards mode the timetable IS the answer laid out, so it runs from
          the computed start — with a minute of slack so rounding can't trigger a
@@ -952,6 +977,7 @@ const Pace = (() => {
       const p = plan({items, start: S.mode === 'back' ? back.start - 1 : start,
                       finish, wpm: S.wpm, breakPerHour: S.breakPerHour,
                       skim: S.skim || [], noQ: S.noQ || [], order: S.order,
+                      seq: (S.seq || {})[day],
                       /* only for the day being lived: a plan for Tuesday keeps
                          its own shape */
                       state: isDone.state, isDone: isDone.done});
@@ -1093,9 +1119,14 @@ const Pace = (() => {
         + `${dur(p.totals.fullMin)} at full depth, ${dur(p.totals.planMin)} as planned · `
         + `${Math.round(p.totals.perQ / 1000)}s per question`
         + (measuredQms() ? ` (you average ${Math.round(measuredQms() / 1000)}s)` : '')));
+      if (p.breakMin < (S.breakPerHour == null ? DEF.breakPerHour : +S.breakPerHour)) {
+        note.appendChild(el('span', 'pc-note',
+          `breaks trimmed to ${p.breakMin} min so nothing had to be skimmed`));
+      }
       if (p.skimmed.length) {
         note.appendChild(el('span', 'pc-warn',
-          `skimming ${p.skimmed.length}: ${names(p.skimmed, 3)}`));
+          `${dur(p.totals.fullMin + p.breaks)} of work into ${dur(p.avail)} — `
+          + `skimming ${p.skimmed.length}: ${names(p.skimmed, 3)}`));
       }
       if (p.dropped.length) {
         note.appendChild(el('span', 'pc-bad',
@@ -1132,6 +1163,59 @@ const Pace = (() => {
           pick.appendChild(b);
         });
         r.appendChild(pick);
+      }
+
+      /* Order of the day. The plan's own order follows the syllabus; some days
+         you want the heaviest sheet while you are fresh, or the lecture you
+         understand least first. Arrows rather than drag-and-drop: this list is
+         fifteen rows on a Sunday and a mis-drop would silently reshuffle it. */
+      if (items.length > 1) {
+        const box = el('details', 'pc-seq');
+        const sum = el('summary', null, 'Order of lectures');
+        box.appendChild(sum);
+        const cur = ((S.seq || {})[day] && (S.seq || {})[day].length)
+          ? p.blocks.reduce((acc, b) => {           // the order actually planned
+              (b.items || []).forEach(i => acc.includes(i.id) || acc.push(i.id));
+              return acc;
+            }, [])
+          : items.map(i => i.id);
+        const byId = {};
+        items.forEach(i => { byId[i.id] = i; });
+        const list = cur.filter(id => byId[id])
+          .concat(items.map(i => i.id).filter(id => !cur.includes(id)));
+        const move = (from, to) => {
+          if (to < 0 || to >= list.length) return;
+          const next = list.slice();
+          next.splice(to, 0, next.splice(from, 1)[0]);
+          const seqs = Object.assign({}, S.seq || {});
+          seqs[day] = next;
+          S = setSettings({seq: seqs});
+          render();
+        };
+        list.forEach((id, k) => {
+          const row = el('div', 'pc-sq');
+          row.appendChild(el('span', 'pc-sqn', String(k + 1)));
+          row.appendChild(el('span', 'pc-sqt', byId[id].title));
+          const up = el('button', 'pc-sqb', '↑'); up.title = 'earlier in the day';
+          up.disabled = k === 0;
+          up.onclick = () => move(k, k - 1);
+          const dn = el('button', 'pc-sqb', '↓'); dn.title = 'later in the day';
+          dn.disabled = k === list.length - 1;
+          dn.onclick = () => move(k, k + 1);
+          row.append(up, dn);
+          box.appendChild(row);
+        });
+        if ((S.seq || {})[day]) {
+          const rst = el('button', 'pc-act', 'Back to the plan\u2019s order');
+          rst.onclick = () => {
+            const seqs = Object.assign({}, S.seq || {});
+            delete seqs[day];
+            S = setSettings({seq: seqs});
+            render();
+          };
+          box.appendChild(rst);
+        }
+        r.appendChild(box);
       }
 
       /* the timetable */
