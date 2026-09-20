@@ -664,6 +664,10 @@ const Pace = (() => {
        however the rest is chunked. */
     /* every lecture of the day, done or not — the timetable is the day */
     const all = opts.items.filter(i => cost(i, o).total > 0);
+    /* A lecture with no review sheet and no bank costs nothing, so it fell out
+       of the timetable without a word — which reads as "that lecture is not on
+       Sunday" when it is, and only its study page exists. Named, not dropped. */
+    const nothing = opts.items.filter(i => cost(i, o).total <= 0);
     const pending = all.filter(i => owed(i, o).total > 0);
     const sci = all.filter(i => !i.cseve);
     const cs = all.filter(i => i.cseve);
@@ -738,11 +742,12 @@ const Pace = (() => {
     const full = sum(pending, Object.assign({}, o, {skim: new Set()}), c => c.total);
     return {
       blocks, start, finish, end: t, avail,
+      nothing,
       skimmed: f.work.filter(i => f.skim.has(i.id)),
       dropped: f.dropped, over: f.over, noQ: o.noQ,
       fits: t <= finish + 1,
       totals: {
-        pending: pending.length, all: all.length,
+        pending: pending.length, all: all.length, nothing: nothing.length,
         words: pending.reduce((n, i) => n + (i.words || 0), 0),
         qs: pending.reduce((n, i) => n + (i.qs || 0), 0),
         fullMin: full, planMin: t - start, perQ: o.perQ, wpm: o.wpm,
@@ -1095,6 +1100,11 @@ const Pace = (() => {
       if (p.dropped.length) {
         note.appendChild(el('span', 'pc-bad',
           `won't reach ${p.dropped.length}: ${names(p.dropped, 3)}`));
+      }
+      if (p.nothing && p.nothing.length) {
+        note.appendChild(el('span', 'pc-note',
+          `no sheet or bank posted, so not timetabled — ${names(p.nothing, 3)}`
+          + ` (study page only)`));
       }
       if (p.noTime) {
         note.appendChild(el('span', 'pc-bad',
