@@ -1,7 +1,7 @@
 {
  "perQ": 90000,
  "finish": "21:00",
- "wpm": 150,
+ "wpm": 160,
  "breakPerHour": 10,
  "cluster": 4,
  "secPerQ": 90,
@@ -36,24 +36,5 @@
   "week-2-cell-adhesion-ecm",
   "week-3-cellular-basis-protein-synthesis-secretion"
  ],
- "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix",
- "seq": {
-  "Sunday Sep 20 \u2014 cell biology, membranes, matrix": [
-   "week-1-cell-biology-membranes",
-   "week-2-cytoskeleton",
-   "week-2-cell-adhesion-ecm",
-   "week-2-molecular-structure-ecm",
-   "week-1-cell-signaling",
-   "week-3-mitochondria",
-   "week-3-cellular-basis-protein-synthesis-secretion",
-   "week-3-endosomes-lysosomes-endocytosis",
-   "week-5-apoptosis-and-necrosis",
-   "week-5-protein-degradation",
-   "week-1-membrane-transport",
-   "evidence-based-medicine",
-   "scientific-method",
-   "translational-research",
-   "week-1-cell-biology-basic-concepts"
-  ]
- }
+ "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix"
 }
