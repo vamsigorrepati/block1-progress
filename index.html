@@ -583,7 +583,13 @@ const Pace = (() => {
      times you look at this afternoon. */
   function cost(it, o) {
     const w = it.words || 0;
-    const read = w ? (w * (o.skim.has(it.id) ? SKIM_FRACTION : 1)) / o.wpm : 0;
+    /* A sheet can be read at any depth between full and skim — `frac` is that
+       depth. Whole-sheet skimming is a blunt instrument: the biggest sheet is
+       over an hour, so closing a 20-minute gap with it threw away 40 minutes of
+       reading and left the window half empty. */
+    const f = o.frac && o.frac[it.id] != null ? o.frac[it.id]
+            : (o.skim.has(it.id) ? SKIM_FRACTION : 1);
+    const read = w ? (w * f) / o.wpm : 0;
     const q = (o.noQ && o.noQ.has(it.id)) ? 0
             : (it.qs || 0) * (o.perQ / 60000);   // board vignettes only
     return {read, q, total: read + q};
@@ -613,11 +619,13 @@ const Pace = (() => {
      only when everything is skimmed does it start dropping from the tail. */
   function fitList(list, avail, o) {
     const skim = new Set(o.skim);
+    const frac = Object.assign({}, o.frac);
+    const added = [];
     const dropped = [];
     let work = list.slice();
     let breakMin = o.breakMin;
     const totalWith = (l, sk, bm) => {
-      const oo = Object.assign({}, o, {skim: sk});
+      const oo = Object.assign({}, o, {skim: sk, frac});
       const work = sum(l, oo, c => c.total);
       /* breaks are a function of WORK, not of how the work is grouped: one per
          MAX_RUN minutes, which is what "10 minutes an hour" actually means */
@@ -635,13 +643,33 @@ const Pace = (() => {
     }
     for (let guard = 0; guard < 400; guard++) {
       if (totalWith(work, skim) <= avail || !work.length) break;
-      const cand = work.filter(i => !skim.has(i.id) && i.words > 0)
-                       .sort((a, b) => b.words - a.words)[0];
-      if (cand) { skim.add(cand.id); continue; }
+      /* The SMALLEST sheet that closes the gap, not the largest. Largest-first
+         saves the most per downgrade, which is the wrong objective: it is the
+         reason a day 20 minutes over lost its heaviest sheet and then finished
+         an hour early. */
+      const deficit = totalWith(work, skim) - avail;
+      const cands = work.filter(i => !skim.has(i.id) && i.words > 0)
+        .map(i => ({i, save: (i.words * (1 - SKIM_FRACTION)) / o.wpm}))
+        .sort((a, b) => a.save - b.save);
+      const cand = (cands.find(c => c.save >= deficit) || cands[cands.length - 1] || {}).i;
+      if (cand) { skim.add(cand.id); added.push(cand.id); continue; }
       if (work.length <= 1) break;                   // can't shrink further
       dropped.unshift(work.pop());
     }
-    return {work, skim, dropped, breakMin, over: totalWith(work, skim) > avail};
+    /* Give back what the last downgrade overshot: read that sheet as fully as
+       the window allows, rather than at a flat 35% with an hour left spare. */
+    if (added.length && !dropped.length) {
+      const id = added[added.length - 1];
+      let lo = SKIM_FRACTION, hi = 1, best = SKIM_FRACTION;
+      for (let k = 0; k < 20; k++) {
+        const mid = (lo + hi) / 2;
+        frac[id] = mid;
+        if (totalWith(work, skim) <= avail) { best = mid; lo = mid; } else hi = mid;
+      }
+      frac[id] = best;
+      if (best > 0.97) { skim.delete(id); delete frac[id]; }   // it fits whole after all
+    }
+    return {work, skim, frac, dropped, breakMin, over: totalWith(work, skim) > avail};
   }
 
   /* ---------- plan ---------- */
@@ -696,7 +724,8 @@ const Pace = (() => {
 
     const f = fitList(sci.concat(cs), avail, o);
     const keptSci = f.work.filter(i => !i.cseve), keptCs = f.work.filter(i => i.cseve);
-    const oo = Object.assign({}, o, {skim: f.skim});
+    const oo = Object.assign({}, o, {skim: f.skim, frac: f.frac});
+    o.frac = f.frac;
     o.breakMin = f.breakMin;            // the fitter may have shortened them to fit
 
     /* Order of the day. 'lecture' (the default) works a cluster of sheets and
@@ -766,7 +795,7 @@ const Pace = (() => {
     return {
       blocks, start, finish, end: t, avail,
       nothing,
-      breakMin: f.breakMin,
+      breakMin: f.breakMin, frac: f.frac,
       breaks: blocks.reduce((n, b) => n + (b.kind === 'break' ? b.min : 0), 0),
       skimmed: f.work.filter(i => f.skim.has(i.id)),
       dropped: f.dropped, over: f.over, noQ: o.noQ,
@@ -1124,9 +1153,17 @@ const Pace = (() => {
           `breaks trimmed to ${p.breakMin} min so nothing had to be skimmed`));
       }
       if (p.skimmed.length) {
+        /* name the depth: "at 80%" is a different instruction from a 35% skim */
+        const depth = i => {
+          const f = (p.frac || {})[i.id];
+          return i.title + (f != null && f > SKIM_FRACTION + 0.01
+            ? ` (${Math.round(f * 100)}%)` : '');
+        };
         note.appendChild(el('span', 'pc-warn',
           `${dur(p.totals.fullMin + p.breaks)} of work into ${dur(p.avail)} — `
-          + `skimming ${p.skimmed.length}: ${names(p.skimmed, 3)}`));
+          + `skimming ${p.skimmed.length}: `
+          + p.skimmed.slice(0, 3).map(depth).join(' · ')
+          + (p.skimmed.length > 3 ? ` +${p.skimmed.length - 3} more` : '')));
       }
       if (p.dropped.length) {
         note.appendChild(el('span', 'pc-bad',
@@ -1230,6 +1267,10 @@ const Pace = (() => {
           body.appendChild(el('b', null, b.kind === 'read' ? 'Read' : 'Questions'));
           b.items.forEach(i => {
             const c = el('a', 'pc-lec' + (p.skimmed.includes(i) ? ' skim' : ''), i.title);
+            if (p.skimmed.includes(i)) {
+              const f = (p.frac || {})[i.id] || SKIM_FRACTION;
+              c.title = `read at ${Math.round(f * 100)}% — tables, "Easy to confuse" and traps first`;
+            }
             c.href = 'desk.html#' + i.id + (b.kind === 'q' ? '/practice' : '/review-notes');
             body.appendChild(c);
           });
