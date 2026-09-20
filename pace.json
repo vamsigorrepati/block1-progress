@@ -39,10 +39,8 @@
  "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix",
  "seq": {
   "Sunday Sep 20 \u2014 cell biology, membranes, matrix": [
-   "week-1-cell-biology-basic-concepts",
    "week-1-cell-biology-membranes",
    "week-2-cytoskeleton",
-   "week-1-membrane-transport",
    "week-2-cell-adhesion-ecm",
    "week-2-molecular-structure-ecm",
    "week-1-cell-signaling",
@@ -51,9 +49,11 @@
    "week-3-endosomes-lysosomes-endocytosis",
    "week-5-apoptosis-and-necrosis",
    "week-5-protein-degradation",
+   "week-1-membrane-transport",
    "evidence-based-medicine",
    "scientific-method",
-   "translational-research"
+   "translational-research",
+   "week-1-cell-biology-basic-concepts"
   ]
  }
 }
