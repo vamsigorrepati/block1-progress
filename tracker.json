@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-19T22:13:07.913Z",
+ "updated": "2026-09-20T02:22:30.241Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -69,7 +69,10 @@
    "at": 1789855987911,
    "conf": "4"
   },
-  "week-3-gluconeogenesis": {},
+  "week-3-gluconeogenesis": {
+   "p1": true,
+   "at": 1789870950240
+  },
   "week-4-maintenance-of-the-genome-i-ii-dna-replication": {},
   "week-4-maintenance-of-the-genome-iii-iv-mutations-and-repair": {},
   "week-4-maintenance-of-the-genome-v-dna-rearrangements": {},
