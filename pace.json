@@ -1,7 +1,7 @@
 {
  "perQ": 90000,
  "finish": "21:00",
- "wpm": 160,
+ "wpm": 150,
  "breakPerHour": 10,
  "cluster": 4,
  "secPerQ": 90,
@@ -19,22 +19,11 @@
   }
  },
  "mode": "fit",
- "noQ": [
-  "week-1-molecules-of-life-bonding",
-  "week-1-amino-acids-and-proteins",
-  "week-1-catalysis",
-  "week-1-cell-biology-membranes",
-  "week-2-molecular-structure-ecm",
-  "week-3-endosomes-lysosomes-endocytosis",
-  "week-5-apoptosis-and-necrosis",
-  "week-5-protein-degradation",
-  "week-1-cell-signaling",
-  "week-2-cytoskeleton",
-  "week-1-membrane-transport",
-  "week-3-mitochondria",
-  "week-2-cell-adhesion-ecm",
-  "week-3-cellular-basis-protein-synthesis-secretion"
- ],
  "date": "2026-09-20",
- "day": "Saturday Sep 19 \u2014 biochem foundations + metabolism"
+ "noQ": [
+  "week-1-amino-acids-and-proteins",
+  "week-1-molecules-of-life-bonding",
+  "week-1-catalysis"
+ ],
+ "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix"
 }
