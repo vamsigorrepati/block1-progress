@@ -14,8 +14,8 @@
   },
   "Sunday Sep 20 \u2014 cell biology, membranes, matrix": {
    "finish": "01:00",
-   "at": 1789918947437,
-   "start": 720
+   "at": 1789931216179,
+   "start": 900
   }
  },
  "mode": "fit",
@@ -23,7 +23,18 @@
  "noQ": [
   "week-1-amino-acids-and-proteins",
   "week-1-molecules-of-life-bonding",
-  "week-1-catalysis"
+  "week-1-catalysis",
+  "week-1-cell-biology-membranes",
+  "week-2-molecular-structure-ecm",
+  "week-3-endosomes-lysosomes-endocytosis",
+  "week-5-apoptosis-and-necrosis",
+  "week-5-protein-degradation",
+  "week-1-cell-signaling",
+  "week-1-membrane-transport",
+  "week-2-cytoskeleton",
+  "week-3-mitochondria",
+  "week-2-cell-adhesion-ecm",
+  "week-3-cellular-basis-protein-synthesis-secretion"
  ],
  "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix"
 }
