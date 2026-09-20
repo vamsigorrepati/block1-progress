@@ -1229,10 +1229,44 @@ const Pace = (() => {
           S = setSettings({seq: seqs});
           render();
         };
+        /* Drag to reorder, arrows as the fallback. HTML5 drag-and-drop does not
+           fire on touch, and a 15-row list is easy to drop one slot off, so both
+           stay: the grip for a quick shuffle, the arrows for precision. */
+        let from = -1;
         list.forEach((id, k) => {
           const row = el('div', 'pc-sq');
+          row.draggable = true;
+          row.dataset.k = k;
+          row.appendChild(el('span', 'pc-grip', '\u2237'));
           row.appendChild(el('span', 'pc-sqn', String(k + 1)));
           row.appendChild(el('span', 'pc-sqt', byId[id].title));
+          row.ondragstart = e => {
+            from = k;
+            row.classList.add('drag');
+            e.dataTransfer.effectAllowed = 'move';
+            /* Firefox ignores a drag with no payload */
+            e.dataTransfer.setData('text/plain', id);
+          };
+          row.ondragend = () => {
+            from = -1;
+            box.querySelectorAll('.pc-sq').forEach(x =>
+              x.classList.remove('drag', 'over-up', 'over-dn'));
+          };
+          row.ondragover = e => {
+            if (from < 0 || from === k) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            row.classList.toggle('over-up', k < from);
+            row.classList.toggle('over-dn', k > from);
+          };
+          row.ondragleave = () => row.classList.remove('over-up', 'over-dn');
+          row.ondrop = e => {
+            e.preventDefault();
+            if (from < 0 || from === k) return;
+            const f = from;
+            from = -1;
+            move(f, k);
+          };
           const up = el('button', 'pc-sqb', '↑'); up.title = 'earlier in the day';
           up.disabled = k === 0;
           up.onclick = () => move(k, k - 1);

@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-20T02:22:30.241Z",
+ "updated": "2026-09-20T19:24:47.326Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -13,7 +13,10 @@
    "conf": "5"
   },
   "week-1-learning-objectives": {},
-  "week-1-cell-biology-basic-concepts": {},
+  "week-1-cell-biology-basic-concepts": {
+   "p1": true,
+   "at": 1789932285897
+  },
   "week-1-amino-acids-and-proteins": {
    "p1": true,
    "at": 1789835165021,
@@ -31,7 +34,10 @@
    "conf": "3",
    "p2": true
   },
-  "week-1-cell-biology-membranes": {},
+  "week-1-cell-biology-membranes": {
+   "p1": true,
+   "at": 1789932287324
+  },
   "week-1-foundations-of-physiology-i": {},
   "week-1-foundations-of-physiology-ii": {},
   "week-1-membrane-transport": {},
