@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-21T19:36:17.625Z",
+ "updated": "2026-09-21T23:11:50.958Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -72,7 +72,10 @@
    "p1": true,
    "at": 1790019377623
   },
-  "week-3-endosomes-lysosomes-endocytosis": {},
+  "week-3-endosomes-lysosomes-endocytosis": {
+   "p1": true,
+   "at": 1790032310957
+  },
   "week-3-glycolysis": {
    "p1": true,
    "at": 1789855987911,
