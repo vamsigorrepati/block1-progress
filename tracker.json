@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-20T19:24:47.326Z",
+ "updated": "2026-09-21T17:39:32.098Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": false,
@@ -96,7 +96,10 @@
   "week-5-central-nervous-system-tissue-neurons-and-glia": {},
   "week-5-peripheral-nervous-system-tissue": {},
   "week-5-circuitry-i-ii-iii-action-potential": {},
-  "week-5-apoptosis-and-necrosis": {},
+  "week-5-apoptosis-and-necrosis": {
+   "p1": true,
+   "at": 1790012372097
+  },
   "week-5-circuitry-synapses-i-and-ii": {},
   "flipping-for-pass-labs-i-and-ii": {},
   "block-1-case-based-applications": {},
