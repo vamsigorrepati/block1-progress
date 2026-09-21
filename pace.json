@@ -19,7 +19,7 @@
   }
  },
  "mode": "fit",
- "date": "2026-09-20",
+ "date": "2026-09-21",
  "noQ": [
   "week-1-amino-acids-and-proteins",
   "week-1-molecules-of-life-bonding",
@@ -36,5 +36,25 @@
   "week-2-cell-adhesion-ecm",
   "week-3-cellular-basis-protein-synthesis-secretion"
  ],
- "day": "Sunday Sep 20 \u2014 cell biology, membranes, matrix"
+ "day": "Monday Sep 21 \u2014 nucleotides through DNA",
+ "seq": {
+  "Sunday Sep 20 \u2014 cell biology, membranes, matrix": [
+   "week-1-cell-biology-membranes",
+   "week-2-cytoskeleton",
+   "week-2-cell-adhesion-ecm",
+   "week-2-molecular-structure-ecm",
+   "week-1-cell-signaling",
+   "week-3-mitochondria",
+   "week-3-cellular-basis-protein-synthesis-secretion",
+   "week-3-endosomes-lysosomes-endocytosis",
+   "week-5-apoptosis-and-necrosis",
+   "week-5-protein-degradation",
+   "week-1-membrane-transport",
+   "evidence-based-medicine",
+   "scientific-method",
+   "translational-research",
+   "week-1-cell-biology-basic-concepts"
+  ]
+ },
+ "dayOn": "2026-09-21"
 }
