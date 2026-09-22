@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T18:47:07.180Z",
+ "updated": "2026-09-22T20:54:07.257Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -112,7 +112,10 @@
   "week-4-connective-tissue": {},
   "week-4-structure-and-function-of-skeletal-muscle": {},
   "week-4-structure-and-function-of-smooth-muscle": {},
-  "week-5-metabolic-concepts-vitamins-coenzymes-i-and-ii": {},
+  "week-5-metabolic-concepts-vitamins-coenzymes-i-and-ii": {
+   "p1": true,
+   "at": 1790110447257
+  },
   "week-5-protein-degradation": {},
   "week-5-central-nervous-system-tissue-neurons-and-glia": {},
   "week-5-peripheral-nervous-system-tissue": {},
