@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T01:31:35.595Z",
+ "updated": "2026-09-22T02:14:22.039Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -69,7 +69,10 @@
   "week-3-introduction-to-human-embryology": {},
   "week-3-early-development-week-1": {},
   "week-3-nucleus": {},
-  "week-3-mitochondria": {},
+  "week-3-mitochondria": {
+   "p1": true,
+   "at": 1790043262037
+  },
   "week-3-early-development-weeks-2-4": {},
   "week-3-cellular-basis-protein-synthesis-secretion": {
    "p1": true,
