@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T20:54:07.257Z",
+ "updated": "2026-09-22T22:30:26.475Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -139,7 +139,10 @@
   "cultural-competency": {},
   "health-disparities-and-social-determinants": {},
   "gullah-geechee-culture-and-society": {},
-  "evidence-based-medicine": {},
+  "evidence-based-medicine": {
+   "p1": true,
+   "at": 1790116226474
+  },
   "translational-research": {},
   "motivational-interviewing": {},
   "introduction-to-ethics": {},
