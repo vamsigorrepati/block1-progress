@@ -1,10 +1,10 @@
 {
  "version": 1,
- "updated": "2026-09-21T23:11:50.958Z",
+ "updated": "2026-09-22T01:31:35.595Z",
  "rows": {
   "week-1-overview-of-block-1": {
-   "p1": false,
-   "at": 1789828813948,
+   "p1": true,
+   "at": 1790040694041,
    "p2": false
   },
   "week-1-molecules-of-life-bonding": {
@@ -12,7 +12,10 @@
    "at": 1789831144114,
    "conf": "5"
   },
-  "week-1-learning-objectives": {},
+  "week-1-learning-objectives": {
+   "p1": true,
+   "at": 1790040694543
+  },
   "week-1-cell-biology-basic-concepts": {
    "p1": true,
    "at": 1789932285897
@@ -107,8 +110,14 @@
    "at": 1790012372097
   },
   "week-5-circuitry-synapses-i-and-ii": {},
-  "flipping-for-pass-labs-i-and-ii": {},
-  "block-1-case-based-applications": {},
+  "flipping-for-pass-labs-i-and-ii": {
+   "p1": true,
+   "at": 1790040695007
+  },
+  "block-1-case-based-applications": {
+   "p1": true,
+   "at": 1790040695593
+  },
   "fundamentals-of-physical-diagnosis": {},
   "vital-signs": {},
   "medical-interviewing": {},
