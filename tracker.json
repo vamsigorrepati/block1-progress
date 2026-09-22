@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T18:12:03.157Z",
+ "updated": "2026-09-22T18:47:07.180Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -50,7 +50,10 @@
    "conf": "5"
   },
   "week-1-purines-and-pyrimidines": {},
-  "week-1-cell-signaling": {},
+  "week-1-cell-signaling": {
+   "p1": true,
+   "at": 1790102827179
+  },
   "week-1-metabolic-fuels": {},
   "week-2-nucleic-acids-i-ii": {},
   "week-2-mendelian-genetics-i": {},
