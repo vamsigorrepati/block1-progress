@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T22:39:51.011Z",
+ "updated": "2026-09-22T22:52:45.607Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -143,7 +143,10 @@
    "p1": true,
    "at": 1790116226474
   },
-  "translational-research": {},
+  "translational-research": {
+   "p1": true,
+   "at": 1790117565606
+  },
   "motivational-interviewing": {},
   "introduction-to-ethics": {},
   "scientific-method": {
