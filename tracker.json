@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T22:30:26.475Z",
+ "updated": "2026-09-22T22:39:51.011Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -146,7 +146,10 @@
   "translational-research": {},
   "motivational-interviewing": {},
   "introduction-to-ethics": {},
-  "scientific-method": {},
+  "scientific-method": {
+   "p1": true,
+   "at": 1790116791010
+  },
   "introduction-to-research-ethics": {},
   "physician-patient-relationship": {}
  }
