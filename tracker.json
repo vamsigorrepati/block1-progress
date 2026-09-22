@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T17:39:04.027Z",
+ "updated": "2026-09-22T18:12:03.157Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -55,7 +55,10 @@
   "week-2-nucleic-acids-i-ii": {},
   "week-2-mendelian-genetics-i": {},
   "week-2-mendelian-genetics-ii": {},
-  "week-2-molecular-structure-ecm": {},
+  "week-2-molecular-structure-ecm": {
+   "p1": true,
+   "at": 1790100723156
+  },
   "week-2-cell-adhesion-ecm": {
    "p1": true,
    "at": 1790098744024

@@ -181,6 +181,12 @@ aside{width:var(--sw,340px);flex:0 0 auto;display:flex;flex-direction:column;
 .row.cs{opacity:.92}
 aside .filt{margin:10px 0 0;padding:0;border:0;gap:5px}
 .fb.hide{border-style:dashed}
+/* a read lecture whose self-assessment is still waiting */
+.row.sa .t::after{content:'SA';margin-left:6px;font-size:9px;font-weight:800;letter-spacing:.06em;
+ color:var(--ok);border:1px solid var(--ok);border-radius:4px;padding:0 3px;vertical-align:1px}
+.saq{margin-left:auto;font-size:12px;font-weight:700;text-decoration:none;color:var(--ok);
+ border:1px solid var(--ok);border-radius:8px;padding:3px 9px;white-space:nowrap}
+.saq:hover{background:var(--ok);color:var(--panel)}
 .fb.hide.on{border-style:solid;border-color:var(--ok);background:var(--ok-soft,var(--accent-soft));color:var(--ok)}
 .row.isread .t{color:var(--ink3)}
 .row.isread .rt{opacity:.75}
