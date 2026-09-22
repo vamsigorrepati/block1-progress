@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T02:14:22.039Z",
+ "updated": "2026-09-22T17:39:04.027Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -56,7 +56,10 @@
   "week-2-mendelian-genetics-i": {},
   "week-2-mendelian-genetics-ii": {},
   "week-2-molecular-structure-ecm": {},
-  "week-2-cell-adhesion-ecm": {},
+  "week-2-cell-adhesion-ecm": {
+   "p1": true,
+   "at": 1790098744024
+  },
   "week-2-cytoskeleton": {},
   "week-2-organization-of-the-genome": {},
   "week-2-gene-expression-i-ii": {},
