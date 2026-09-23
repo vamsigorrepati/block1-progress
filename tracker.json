@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-23T13:56:05.616Z",
+ "updated": "2026-09-23T15:44:28.067Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -141,7 +141,10 @@
    "p1": true,
    "at": 1790171765615
   },
-  "medical-interviewing": {},
+  "medical-interviewing": {
+   "p1": true,
+   "at": 1790178267604
+  },
   "cultural-competency": {
    "p1": true,
    "at": 1790167744179
@@ -162,7 +165,10 @@
    "p1": true,
    "at": 1790117565606
   },
-  "motivational-interviewing": {},
+  "motivational-interviewing": {
+   "p1": true,
+   "at": 1790178268067
+  },
   "introduction-to-ethics": {
    "p1": true,
    "at": 1790122399018
