@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-23T12:49:05.594Z",
+ "updated": "2026-09-23T12:58:48.373Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -140,7 +140,10 @@
    "p1": true,
    "at": 1790167744179
   },
-  "health-disparities-and-social-determinants": {},
+  "health-disparities-and-social-determinants": {
+   "p1": true,
+   "at": 1790168328372
+  },
   "gullah-geechee-culture-and-society": {
    "p1": true,
    "at": 1790167745594
