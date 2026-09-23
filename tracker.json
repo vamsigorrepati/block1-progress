@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-22T22:52:45.607Z",
+ "updated": "2026-09-23T00:13:19.018Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -148,7 +148,10 @@
    "at": 1790117565606
   },
   "motivational-interviewing": {},
-  "introduction-to-ethics": {},
+  "introduction-to-ethics": {
+   "p1": true,
+   "at": 1790122399018
+  },
   "scientific-method": {
    "p1": true,
    "at": 1790116791010
