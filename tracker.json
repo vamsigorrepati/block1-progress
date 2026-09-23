@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updated": "2026-09-23T12:59:19.659Z",
+ "updated": "2026-09-23T13:56:05.616Z",
  "rows": {
   "week-1-overview-of-block-1": {
    "p1": true,
@@ -133,8 +133,14 @@
    "p1": true,
    "at": 1790040695593
   },
-  "fundamentals-of-physical-diagnosis": {},
-  "vital-signs": {},
+  "fundamentals-of-physical-diagnosis": {
+   "p1": true,
+   "at": 1790171765141
+  },
+  "vital-signs": {
+   "p1": true,
+   "at": 1790171765615
+  },
   "medical-interviewing": {},
   "cultural-competency": {
    "p1": true,
